@@ -38,7 +38,7 @@ class QuickAddTaskText(CoordinatorEntity[SuperProductivityCoordinator], TextEnti
     _attr_name = "Quick Add Task"
     _attr_icon = "mdi:plus-circle-outline"
     _attr_native_max = 255
-    _attr_native_min = 1
+    _attr_native_min = 0
     _attr_mode = "text"
     _attr_pattern = None
 

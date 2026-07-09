@@ -83,13 +83,6 @@ class CompleteCurrentTaskButton(SPButtonBase):
         """Initialize."""
         super().__init__(coordinator, entry, "btn_complete_current")
 
-    @property
-    def available(self) -> bool:
-        """Only available when tracking a task."""
-        if self.coordinator.data:
-            return self.coordinator.data.is_tracking
-        return False
-
     async def async_press(self) -> None:
         """Handle the button press."""
         if self.coordinator.data and self.coordinator.data.current_task_id:
@@ -108,13 +101,6 @@ class ArchiveCurrentTaskButton(SPButtonBase):
     def __init__(self, coordinator, entry) -> None:
         """Initialize."""
         super().__init__(coordinator, entry, "btn_archive_current")
-
-    @property
-    def available(self) -> bool:
-        """Only available when tracking a task."""
-        if self.coordinator.data:
-            return self.coordinator.data.is_tracking
-        return False
 
     async def async_press(self) -> None:
         """Handle the button press."""
