@@ -51,6 +51,10 @@ class SuperProductivityApi:
         """Initialize the API client."""
         self._session = session
         self._base_url = f"http://{host}:{port}"
+        self._port = port
+        # SP validates Host header - must be 127.0.0.1:<port> or localhost:<port>
+        # even when connecting via a port proxy from another machine
+        self._headers = {"Host": f"127.0.0.1:{port}"}
 
     @property
     def base_url(self) -> str:
@@ -73,6 +77,7 @@ class SuperProductivityApi:
                     url,
                     json=json_data,
                     params=params,
+                    headers=self._headers,
                 )
         except asyncio.TimeoutError as err:
             raise SuperProductivityConnectionError(
