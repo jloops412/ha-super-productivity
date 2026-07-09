@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 from datetime import timedelta
 import logging
-from typing import Any
+from typing import Any, TypeAlias
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -19,7 +19,7 @@ from .const import DEFAULT_SCAN_INTERVAL, DOMAIN, TAG_TODAY
 
 _LOGGER = logging.getLogger(__name__)
 
-type SuperProductivityConfigEntry = ConfigEntry["SuperProductivityCoordinator"]
+SuperProductivityConfigEntry: TypeAlias = ConfigEntry
 
 
 class SuperProductivityData:

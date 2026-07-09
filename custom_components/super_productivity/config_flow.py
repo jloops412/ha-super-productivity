@@ -7,7 +7,9 @@ from typing import Any
 
 import voluptuous as vol
 
-from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
+from homeassistant.config_entries import ConfigFlow
+from homeassistant.data_entry_flow import FlowResult
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import (
     SuperProductivityApi,
@@ -38,7 +40,7 @@ class SuperProductivityConfigFlow(ConfigFlow, domain=DOMAIN):
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
-    ) -> ConfigFlowResult:
+    ) -> FlowResult:
         """Handle the initial step."""
         errors: dict[str, str] = {}
 
@@ -51,16 +53,13 @@ class SuperProductivityConfigFlow(ConfigFlow, domain=DOMAIN):
             self._abort_if_unique_id_configured()
 
             # Validate connection
-            from aiohttp import ClientSession
-
-            session = ClientSession()
+            session = async_get_clientsession(self.hass)
             api = SuperProductivityApi(session, host, port)
             try:
                 health = await api.async_health_check()
                 if not health.get("rendererReady"):
                     errors["base"] = "app_not_ready"
                 else:
-                    await session.close()
                     return self.async_create_entry(
                         title=f"Super Productivity ({host}:{port})",
                         data=user_input,
@@ -70,8 +69,6 @@ class SuperProductivityConfigFlow(ConfigFlow, domain=DOMAIN):
             except Exception:
                 _LOGGER.exception("Unexpected exception during config flow")
                 errors["base"] = "unknown"
-            finally:
-                await session.close()
 
         return self.async_show_form(
             step_id="user",
