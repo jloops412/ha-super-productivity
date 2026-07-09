@@ -4,6 +4,7 @@ DOMAIN = "super_productivity"
 
 CONF_HOST = "host"
 CONF_PORT = "port"
+CONF_SCAN_INTERVAL = "scan_interval"
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 3876

@@ -7,7 +7,8 @@ from typing import Any
 
 import voluptuous as vol
 
-from homeassistant.config_entries import ConfigFlow
+from homeassistant.config_entries import ConfigEntry, ConfigFlow, OptionsFlow
+from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
@@ -18,8 +19,10 @@ from .api import (
 from .const import (
     CONF_HOST,
     CONF_PORT,
+    CONF_SCAN_INTERVAL,
     DEFAULT_HOST,
     DEFAULT_PORT,
+    DEFAULT_SCAN_INTERVAL,
     DOMAIN,
 )
 
@@ -37,6 +40,12 @@ class SuperProductivityConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Super Productivity."""
 
     VERSION = 1
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlow:
+        """Get the options flow handler."""
+        return SuperProductivityOptionsFlow(config_entry)
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
@@ -78,4 +87,51 @@ class SuperProductivityConfigFlow(ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="user",
             data_schema=STEP_USER_DATA_SCHEMA,
+        )
+
+
+class SuperProductivityOptionsFlow(OptionsFlow):
+    """Handle options for Super Productivity."""
+
+    def __init__(self, config_entry: ConfigEntry) -> None:
+        """Initialize options flow."""
+        self._config_entry = config_entry
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Manage the options."""
+        if user_input is not None:
+            # Update the config entry data with new host/port
+            new_data = dict(self._config_entry.data)
+            new_data[CONF_HOST] = user_input[CONF_HOST]
+            new_data[CONF_PORT] = user_input[CONF_PORT]
+            self.hass.config_entries.async_update_entry(
+                self._config_entry,
+                data=new_data,
+                title=f"Super Productivity ({user_input[CONF_HOST]}:{user_input[CONF_PORT]})",
+            )
+            return self.async_create_entry(
+                title="",
+                data={CONF_SCAN_INTERVAL: user_input[CONF_SCAN_INTERVAL]},
+            )
+
+        # Show form with current values
+        current_host = self._config_entry.data.get(CONF_HOST, DEFAULT_HOST)
+        current_port = self._config_entry.data.get(CONF_PORT, DEFAULT_PORT)
+        current_interval = self._config_entry.options.get(
+            CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL
+        )
+
+        return self.async_show_form(
+            step_id="init",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_HOST, default=current_host): str,
+                    vol.Required(CONF_PORT, default=current_port): int,
+                    vol.Required(
+                        CONF_SCAN_INTERVAL, default=current_interval
+                    ): vol.All(int, vol.Range(min=5, max=300)),
+                }
+            ),
         )

@@ -18,5 +18,17 @@
     "abort": {
       "already_configured": "This Super Productivity instance is already configured."
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Super Productivity Options",
+        "data": {
+          "host": "Host",
+          "port": "Port",
+          "scan_interval": "Poll interval (seconds)"
+        }
+      }
+    }
   }
 }

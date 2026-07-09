@@ -21,6 +21,12 @@ _LOGGER = logging.getLogger(__name__)
 
 SuperProductivityConfigEntry: TypeAlias = ConfigEntry
 
+# Event types
+EVENT_TASK_STARTED = f"{DOMAIN}_task_started"
+EVENT_TASK_STOPPED = f"{DOMAIN}_task_stopped"
+EVENT_TASK_COMPLETED = f"{DOMAIN}_task_completed"
+EVENT_ALL_TASKS_DONE = f"{DOMAIN}_all_today_tasks_done"
+
 
 class SuperProductivityData:
     """Container for all data fetched from Super Productivity."""
@@ -83,6 +89,11 @@ class SuperProductivityData:
             total += task.get("timeSpent", 0)
         return total
 
+    @property
+    def done_task_ids(self) -> set[str]:
+        """Get set of completed task IDs from today's tasks."""
+        return {t.get("id") for t in self.today_tasks if t.get("isDone") and t.get("id")}
+
 
 class SuperProductivityCoordinator(DataUpdateCoordinator[SuperProductivityData]):
     """Coordinator for fetching data from Super Productivity."""
@@ -103,6 +114,9 @@ class SuperProductivityCoordinator(DataUpdateCoordinator[SuperProductivityData])
             update_interval=timedelta(seconds=scan_interval),
         )
         self.api = api
+        self._previous_task_id: str | None = None
+        self._previous_done_ids: set[str] = set()
+        self._previous_pending_count: int | None = None
 
     async def _async_update_data(self) -> SuperProductivityData:
         """Fetch data from the Super Productivity API."""
@@ -127,10 +141,70 @@ class SuperProductivityCoordinator(DataUpdateCoordinator[SuperProductivityData])
                 f"Error fetching Super Productivity data: {err}"
             ) from err
 
-        return SuperProductivityData(
+        new_data = SuperProductivityData(
             status=status,
             tasks=tasks,
             today_tasks=today_tasks,
             projects=projects,
             tags=tags,
         )
+
+        # Fire events based on state changes
+        self._detect_and_fire_events(new_data)
+
+        return new_data
+
+    def _detect_and_fire_events(self, new_data: SuperProductivityData) -> None:
+        """Compare old vs new data and fire events."""
+        new_task_id = new_data.current_task_id
+        old_task_id = self._previous_task_id
+
+        # Task started (was not tracking, now tracking)
+        if new_task_id and new_task_id != old_task_id:
+            task = new_data.current_task or {}
+            self.hass.bus.async_fire(EVENT_TASK_STARTED, {
+                "task_id": new_task_id,
+                "title": task.get("title", ""),
+                "project_id": task.get("projectId"),
+                "time_estimate_ms": task.get("timeEstimate", 0),
+            })
+            _LOGGER.debug("Fired event: %s for task %s", EVENT_TASK_STARTED, new_task_id)
+
+        # Task stopped (was tracking, now not)
+        if old_task_id and not new_task_id:
+            self.hass.bus.async_fire(EVENT_TASK_STOPPED, {
+                "task_id": old_task_id,
+            })
+            _LOGGER.debug("Fired event: %s for task %s", EVENT_TASK_STOPPED, old_task_id)
+
+        # Task completed (new done IDs that weren't done before)
+        new_done_ids = new_data.done_task_ids
+        newly_completed = new_done_ids - self._previous_done_ids
+        for task_id in newly_completed:
+            # Find the task data
+            task = next((t for t in new_data.today_tasks if t.get("id") == task_id), {})
+            self.hass.bus.async_fire(EVENT_TASK_COMPLETED, {
+                "task_id": task_id,
+                "title": task.get("title", ""),
+                "project_id": task.get("projectId"),
+                "time_spent_ms": task.get("timeSpent", 0),
+            })
+            _LOGGER.debug("Fired event: %s for task %s", EVENT_TASK_COMPLETED, task_id)
+
+        # All today's tasks done (transition from >0 pending to 0 pending)
+        new_pending = new_data.today_tasks_pending
+        if (self._previous_pending_count is not None
+                and self._previous_pending_count > 0
+                and new_pending == 0
+                and new_data.today_task_count > 0):
+            self.hass.bus.async_fire(EVENT_ALL_TASKS_DONE, {
+                "completed_count": new_data.today_tasks_done,
+                "total_count": new_data.today_task_count,
+                "time_worked_ms": new_data.time_worked_today,
+            })
+            _LOGGER.debug("Fired event: %s", EVENT_ALL_TASKS_DONE)
+
+        # Update previous state for next comparison
+        self._previous_task_id = new_task_id
+        self._previous_done_ids = new_done_ids
+        self._previous_pending_count = new_pending

@@ -9,7 +9,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import SuperProductivityApi
-from .const import CONF_HOST, CONF_PORT, DEFAULT_SCAN_INTERVAL, DOMAIN
+from .const import CONF_HOST, CONF_PORT, CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL, DOMAIN
 from .coordinator import SuperProductivityConfigEntry, SuperProductivityCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -22,6 +22,7 @@ PLATFORMS: list[Platform] = [
     Platform.SWITCH,
     Platform.SELECT,
     Platform.TEXT,
+    Platform.CALENDAR,
 ]
 
 
@@ -35,11 +36,13 @@ async def async_setup_entry(
     session = async_get_clientsession(hass)
     api = SuperProductivityApi(session, host, port)
 
+    scan_interval = entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
+
     coordinator = SuperProductivityCoordinator(
         hass,
         config_entry=entry,
         api=api,
-        scan_interval=DEFAULT_SCAN_INTERVAL,
+        scan_interval=scan_interval,
     )
 
     await coordinator.async_config_entry_first_refresh()
@@ -47,6 +50,12 @@ async def async_setup_entry(
     entry.runtime_data = coordinator
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+
+    # Reload integration when options change
+    entry.async_on_unload(entry.add_update_listener(_async_update_listener))
+
+    # Register webhook for instant updates from SP plugin
+    await async_setup_webhook(hass, entry, coordinator)
 
     # Register services
     await async_setup_services(hass)
@@ -58,7 +67,47 @@ async def async_unload_entry(
     hass: HomeAssistant, entry: SuperProductivityConfigEntry
 ) -> bool:
     """Unload a config entry."""
+    # Remove webhook
+    from homeassistant.components.webhook import async_unregister
+    webhook_id = f"{DOMAIN}_{entry.entry_id}"
+    async_unregister(hass, webhook_id)
+
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+
+
+async def _async_update_listener(
+    hass: HomeAssistant, entry: SuperProductivityConfigEntry
+) -> None:
+    """Handle options update - reload the integration."""
+    await hass.config_entries.async_reload(entry.entry_id)
+
+
+async def async_setup_webhook(
+    hass: HomeAssistant,
+    entry: SuperProductivityConfigEntry,
+    coordinator: SuperProductivityCoordinator,
+) -> None:
+    """Register a webhook for instant updates from SP plugin."""
+    from homeassistant.components.webhook import async_register
+
+    webhook_id = f"{DOMAIN}_{entry.entry_id}"
+
+    async def handle_webhook(hass, webhook_id, request):
+        """Handle incoming webhook from SP plugin."""
+        _LOGGER.debug("Webhook received - triggering immediate refresh")
+        await coordinator.async_request_refresh()
+
+    async_register(
+        hass,
+        DOMAIN,
+        "Super Productivity Update",
+        webhook_id,
+        handle_webhook,
+        local_only=True,
+    )
+    _LOGGER.info(
+        "Webhook registered at /api/webhook/%s", webhook_id
+    )
 
 
 async def async_setup_services(hass: HomeAssistant) -> None:
