@@ -2,12 +2,13 @@
   "domain": "super_productivity",
   "name": "Super Productivity",
   "version": "1.0.0",
-  "codeowners": [],
+  "codeowners": ["@jloops412"],
   "config_flow": true,
-  "documentation": "https://github.com/super-productivity/super-productivity/wiki/3.01-API#3-local-rest-api",
+  "documentation": "https://github.com/jloops412/ha-super-productivity",
+  "issue_tracker": "https://github.com/jloops412/ha-super-productivity/issues",
   "integration_type": "service",
   "iot_class": "local_polling",
-  "requirements": ["aiohttp>=3.8.0"],
+  "requirements": [],
   "dependencies": [],
   "loggers": ["super_productivity"]
 }
