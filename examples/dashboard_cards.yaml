@@ -1,0 +1,239 @@
+# Super Productivity - Dashboard Cards Example
+# Copy these into your Lovelace dashboard (Sections view recommended)
+#
+# Prerequisites:
+# - custom:button-card (install via HACS > Frontend)
+# - Super Productivity integration configured and running
+
+# ============================================================
+# SECTION: Focus (current task + controls)
+# ============================================================
+# Paste these cards into a grid section:
+
+# --- Active tracking indicator (shows when tracking) ---
+- type: conditional
+  conditions:
+    - entity: binary_sensor.super_productivity_tracking_active
+      state: "on"
+  card:
+    type: custom:button-card
+    entity: sensor.super_productivity_current_task
+    show_state: true
+    show_name: true
+    show_icon: true
+    name: TRACKING
+    icon: mdi:timer-play
+    tap_action:
+      action: none
+    styles:
+      card:
+        - background: >-
+            linear-gradient(135deg, rgba(40, 90, 140, 0.4) 0%, rgba(30, 70,
+            120, 0.2) 100%)
+        - border: 1px solid rgba(80, 160, 220, 0.5)
+        - border-radius: 16px
+        - padding: 20px
+        - box-shadow: 0 4px 24px rgba(0, 100, 200, 0.15)
+      state:
+        - font-size: 1.3em
+        - font-weight: "600"
+        - margin-top: 8px
+      name:
+        - font-size: 0.7em
+        - letter-spacing: 2px
+        - color: rgba(100, 180, 255, 0.9)
+        - font-weight: "500"
+      icon:
+        - color: rgba(100, 180, 255, 0.9)
+        - width: 32px
+        - animation: blink 2s ease infinite
+    grid_options:
+      columns: full
+      rows: auto
+
+# --- Idle state (shows when not tracking) ---
+- type: conditional
+  conditions:
+    - entity: binary_sensor.super_productivity_tracking_active
+      state: "off"
+  card:
+    type: custom:button-card
+    entity: binary_sensor.super_productivity_tracking_active
+    show_state: false
+    show_name: true
+    show_icon: true
+    name: Ready to focus
+    icon: mdi:timer-sand-empty
+    tap_action:
+      action: none
+    styles:
+      card:
+        - background: rgba(60, 60, 70, 0.3)
+        - border: 1px solid rgba(100, 100, 110, 0.3)
+        - border-radius: 16px
+        - padding: 20px
+      name:
+        - font-size: 1em
+        - opacity: "0.5"
+        - font-style: italic
+      icon:
+        - opacity: "0.3"
+        - width: 32px
+    grid_options:
+      columns: full
+      rows: auto
+
+# --- Task picker (dropdown to start tracking) ---
+- type: tile
+  entity: select.super_productivity_start_task
+  name: Start a Task
+  icon: mdi:play-circle
+  color: blue
+  grid_options:
+    columns: full
+    rows: 1
+
+# --- Control buttons ---
+- type: tile
+  entity: switch.super_productivity_time_tracking
+  name: Tracking
+  vertical: true
+
+- type: tile
+  entity: button.super_productivity_complete_current_task
+  name: Complete
+  icon: mdi:check-bold
+  color: green
+  vertical: true
+
+- type: tile
+  entity: button.super_productivity_stop_tracking
+  name: Stop
+  icon: mdi:stop
+  color: red
+  vertical: true
+
+# ============================================================
+# SECTION: Today (progress stats + task list)
+# ============================================================
+
+# --- Stat cards (use button-card for styled numbers) ---
+- type: custom:button-card
+  entity: sensor.super_productivity_today_s_pending_tasks
+  show_state: true
+  show_name: true
+  show_icon: true
+  name: Pending
+  icon: mdi:checkbox-blank-circle-outline
+  tap_action:
+    action: none
+  styles:
+    card:
+      - background: rgba(255, 167, 38, 0.15)
+      - border-radius: 12px
+      - padding: 12px
+    state:
+      - font-size: 1.8em
+      - font-weight: bold
+      - color: rgb(255, 167, 38)
+    name:
+      - font-size: 0.75em
+      - opacity: "0.7"
+    icon:
+      - color: rgb(255, 167, 38)
+      - width: 20px
+
+- type: custom:button-card
+  entity: sensor.super_productivity_today_s_completed_tasks
+  show_state: true
+  show_name: true
+  show_icon: true
+  name: Done
+  icon: mdi:check-circle
+  tap_action:
+    action: none
+  styles:
+    card:
+      - background: rgba(76, 175, 80, 0.15)
+      - border-radius: 12px
+      - padding: 12px
+    state:
+      - font-size: 1.8em
+      - font-weight: bold
+      - color: rgb(76, 175, 80)
+    name:
+      - font-size: 0.75em
+      - opacity: "0.7"
+    icon:
+      - color: rgb(76, 175, 80)
+      - width: 20px
+
+- type: custom:button-card
+  entity: sensor.super_productivity_time_worked_today
+  show_state: true
+  show_name: true
+  show_icon: true
+  name: Hours
+  icon: mdi:clock-outline
+  tap_action:
+    action: none
+  styles:
+    card:
+      - background: rgba(66, 165, 245, 0.15)
+      - border-radius: 12px
+      - padding: 12px
+    state:
+      - font-size: 1.8em
+      - font-weight: bold
+      - color: rgb(66, 165, 245)
+    name:
+      - font-size: 0.75em
+      - opacity: "0.7"
+    icon:
+      - color: rgb(66, 165, 245)
+      - width: 20px
+
+# --- Today's task list ---
+- type: todo-list
+  entity: todo.super_productivity_sp_today
+  title: "Today's Tasks"
+  grid_options:
+    columns: full
+    rows: auto
+
+# ============================================================
+# SECTION: Quick Actions
+# ============================================================
+
+# --- Quick add task ---
+- type: tile
+  entity: text.super_productivity_quick_add_task
+  name: New Task
+  icon: mdi:plus-thick
+  color: blue
+  grid_options:
+    columns: full
+    rows: 1
+
+# --- Project picker ---
+- type: tile
+  entity: select.super_productivity_active_project
+  name: Project
+  icon: mdi:folder-open
+  grid_options:
+    columns: full
+    rows: 1
+
+# --- Active task count ---
+- type: tile
+  entity: sensor.super_productivity_active_tasks
+  name: Active Tasks
+  icon: mdi:format-list-numbered
+  color: primary
+
+# --- Archive button ---
+- type: tile
+  entity: button.super_productivity_archive_current_task
+  name: Archive
+  icon: mdi:archive-arrow-down
+  color: disabled
