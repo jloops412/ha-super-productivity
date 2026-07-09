@@ -175,7 +175,9 @@ class SuperProductivityApi:
 
     async def async_start_task(self, task_id: str) -> dict[str, Any]:
         """Start tracking a task."""
-        return await self._request("POST", f"{ENDPOINT_TASKS}/{task_id}/start")
+        return await self._request(
+            "POST", ENDPOINT_TASK_CONTROL_CURRENT, json_data={"taskId": task_id}
+        )
 
     async def async_archive_task(self, task_id: str) -> dict[str, Any]:
         """Archive a task."""
