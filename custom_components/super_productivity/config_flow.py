@@ -42,8 +42,6 @@ class SuperProductivityConfigFlow(ConfigFlow, domain=DOMAIN):
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
         """Handle the initial step."""
-        errors: dict[str, str] = {}
-
         if user_input is not None:
             host = user_input[CONF_HOST]
             port = user_input[CONF_PORT]
@@ -52,26 +50,32 @@ class SuperProductivityConfigFlow(ConfigFlow, domain=DOMAIN):
             await self.async_set_unique_id(f"{host}:{port}")
             self._abort_if_unique_id_configured()
 
-            # Validate connection
+            # Try to validate connection, but don't block setup if it fails
             session = async_get_clientsession(self.hass)
             api = SuperProductivityApi(session, host, port)
             try:
-                health = await api.async_health_check()
-                if not health.get("rendererReady"):
-                    errors["base"] = "app_not_ready"
-                else:
-                    return self.async_create_entry(
-                        title=f"Super Productivity ({host}:{port})",
-                        data=user_input,
-                    )
+                await api.async_health_check()
+                _LOGGER.info("Successfully connected to Super Productivity at %s:%s", host, port)
             except SuperProductivityConnectionError:
-                errors["base"] = "cannot_connect"
+                _LOGGER.warning(
+                    "Could not connect to Super Productivity at %s:%s during setup. "
+                    "The integration will retry when the app becomes available.",
+                    host, port
+                )
             except Exception:
-                _LOGGER.exception("Unexpected exception during config flow")
-                errors["base"] = "unknown"
+                _LOGGER.warning(
+                    "Unexpected error connecting to Super Productivity at %s:%s during setup. "
+                    "The integration will retry when the app becomes available.",
+                    host, port
+                )
+
+            # Always create the entry - coordinator will handle retries
+            return self.async_create_entry(
+                title=f"Super Productivity ({host}:{port})",
+                data=user_input,
+            )
 
         return self.async_show_form(
             step_id="user",
             data_schema=STEP_USER_DATA_SCHEMA,
-            errors=errors,
         )
