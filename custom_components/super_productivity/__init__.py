@@ -14,7 +14,15 @@ from .coordinator import SuperProductivityConfigEntry, SuperProductivityCoordina
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BINARY_SENSOR, Platform.TODO]
+PLATFORMS: list[Platform] = [
+    Platform.SENSOR,
+    Platform.BINARY_SENSOR,
+    Platform.TODO,
+    Platform.BUTTON,
+    Platform.SWITCH,
+    Platform.SELECT,
+    Platform.TEXT,
+]
 
 
 async def async_setup_entry(
