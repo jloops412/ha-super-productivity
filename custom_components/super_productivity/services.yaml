@@ -1,0 +1,86 @@
+create_task:
+  name: Create Task
+  description: Create a new task in Super Productivity.
+  fields:
+    title:
+      name: Title
+      description: The title of the task.
+      required: true
+      example: "Buy groceries"
+      selector:
+        text:
+    project_id:
+      name: Project ID
+      description: The project to add the task to. Use the project ID from Super Productivity.
+      example: "INBOX_PROJECT"
+      selector:
+        text:
+    tag_ids:
+      name: Tag IDs
+      description: List of tag IDs to assign to the task.
+      selector:
+        text:
+          multiple: true
+    notes:
+      name: Notes
+      description: Notes or description for the task.
+      selector:
+        text:
+          multiline: true
+    time_estimate:
+      name: Time Estimate
+      description: Estimated time in milliseconds.
+      example: 3600000
+      selector:
+        number:
+          min: 0
+          mode: box
+          unit_of_measurement: ms
+    due_day:
+      name: Due Day
+      description: Due date in YYYY-MM-DD format.
+      example: "2025-01-15"
+      selector:
+        text:
+    parent_id:
+      name: Parent Task ID
+      description: Create as a subtask of this task ID.
+      selector:
+        text:
+
+start_task:
+  name: Start Task
+  description: Start tracking time on a task.
+  fields:
+    task_id:
+      name: Task ID
+      description: The ID of the task to start tracking.
+      required: true
+      selector:
+        text:
+
+stop_task:
+  name: Stop Task
+  description: Stop tracking the current task.
+
+complete_task:
+  name: Complete Task
+  description: Mark a task as completed.
+  fields:
+    task_id:
+      name: Task ID
+      description: The ID of the task to mark as done.
+      required: true
+      selector:
+        text:
+
+archive_task:
+  name: Archive Task
+  description: Archive a completed task.
+  fields:
+    task_id:
+      name: Task ID
+      description: The ID of the task to archive.
+      required: true
+      selector:
+        text:

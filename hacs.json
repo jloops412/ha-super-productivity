@@ -1,0 +1,7 @@
+{
+  "name": "Super Productivity",
+  "render_readme": true,
+  "domains": ["sensor", "binary_sensor", "todo"],
+  "iot_class": "local_polling",
+  "homeassistant": "2024.1.0"
+}

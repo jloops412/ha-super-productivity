@@ -1,0 +1,22 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to Super Productivity",
+        "description": "Enter the host and port of your Super Productivity desktop app.\n\nMake sure the Local REST API is enabled in Super Productivity:\nSettings > Misc > Enable local REST API",
+        "data": {
+          "host": "Host",
+          "port": "Port"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect to Super Productivity. Ensure the app is running and the Local REST API is enabled.",
+      "app_not_ready": "Super Productivity is running but the app is not ready yet. Please wait and try again.",
+      "unknown": "An unexpected error occurred."
+    },
+    "abort": {
+      "already_configured": "This Super Productivity instance is already configured."
+    }
+  }
+}

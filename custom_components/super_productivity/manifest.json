@@ -1,0 +1,13 @@
+{
+  "domain": "super_productivity",
+  "name": "Super Productivity",
+  "version": "1.0.0",
+  "codeowners": [],
+  "config_flow": true,
+  "documentation": "https://github.com/super-productivity/super-productivity/wiki/3.01-API#3-local-rest-api",
+  "integration_type": "service",
+  "iot_class": "local_polling",
+  "requirements": ["aiohttp>=3.8.0"],
+  "dependencies": [],
+  "loggers": ["super_productivity"]
+}
