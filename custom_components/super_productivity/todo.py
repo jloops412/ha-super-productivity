@@ -81,17 +81,56 @@ def _parse_due_date(task: dict[str, Any]) -> datetime.date | datetime.datetime |
     return None
 
 
-def _task_to_todo_item(task: dict[str, Any]) -> TodoItem:
+def _task_to_todo_item(task: dict[str, Any], all_tasks: list[dict[str, Any]] | None = None) -> TodoItem:
     """Convert a Super Productivity task to a HA TodoItem."""
     status = (
         TodoItemStatus.COMPLETED if task.get("isDone") else TodoItemStatus.NEEDS_ACTION
     )
+
+    # Build rich description with subtasks, time, and metadata
+    desc_parts = []
+
+    # Notes
+    notes = task.get("notes")
+    if notes:
+        desc_parts.append(notes.strip())
+
+    # Subtasks
+    sub_task_ids = task.get("subTaskIds", [])
+    if sub_task_ids and all_tasks:
+        subtask_lines = []
+        for sub_id in sub_task_ids:
+            sub = next((t for t in all_tasks if t.get("id") == sub_id), None)
+            if sub:
+                check = "[x]" if sub.get("isDone") else "[ ]"
+                subtask_lines.append(f"  {check} {sub.get('title', '?')}")
+        if subtask_lines:
+            desc_parts.append("Subtasks:\n" + "\n".join(subtask_lines))
+
+    # Time tracking info
+    time_spent = task.get("timeSpent", 0)
+    time_estimate = task.get("timeEstimate", 0)
+    if time_spent > 0 or time_estimate > 0:
+        time_info = []
+        if time_spent > 0:
+            mins = round(time_spent / 60_000)
+            time_info.append(f"Spent: {mins}m")
+        if time_estimate > 0:
+            est_mins = round(time_estimate / 60_000)
+            time_info.append(f"Estimate: {est_mins}m")
+        if time_spent > 0 and time_estimate > 0:
+            pct = min(round((time_spent / time_estimate) * 100), 999)
+            time_info.append(f"Progress: {pct}%")
+        desc_parts.append(" | ".join(time_info))
+
+    description = "\n\n".join(desc_parts) if desc_parts else None
+
     return TodoItem(
         uid=task["id"],
         summary=task.get("title", ""),
         status=status,
         due=_parse_due_date(task),
-        description=task.get("notes") or None,
+        description=description,
     )
 
 
@@ -141,14 +180,15 @@ class SuperProductivityTodoList(
         if self.coordinator.data is None:
             return None
 
+        all_tasks = self.coordinator.data.tasks
         items = []
-        for task in self.coordinator.data.tasks:
+        for task in all_tasks:
             if task.get("projectId") != self._project_id:
                 continue
             # Skip subtasks (show only top-level tasks)
             if task.get("parentId"):
                 continue
-            items.append(_task_to_todo_item(task))
+            items.append(_task_to_todo_item(task, all_tasks))
         return items
 
     async def async_create_todo_item(self, item: TodoItem) -> None:
@@ -260,12 +300,13 @@ class SuperProductivityTodayTodoList(
         if self.coordinator.data is None:
             return None
 
+        all_tasks = self.coordinator.data.today_tasks
         items = []
-        for task in self.coordinator.data.today_tasks:
+        for task in all_tasks:
             # Skip subtasks
             if task.get("parentId"):
                 continue
-            items.append(_task_to_todo_item(task))
+            items.append(_task_to_todo_item(task, all_tasks))
         return items
 
     async def async_update_todo_item(self, item: TodoItem) -> None:

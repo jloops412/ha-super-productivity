@@ -1,0 +1,16 @@
+{
+  "id": "home-assistant-bridge",
+  "name": "Home Assistant Bridge",
+  "version": "1.0.0",
+  "description": "Bridges Super Productivity with Home Assistant. Enables smart home automations based on your task tracking — focus lighting, break reminders, daily summaries, and voice-controlled task creation.",
+  "manifestVersion": 1,
+  "minSupVersion": "10.0.0",
+  "author": "jloops412",
+  "homepage": "https://github.com/jloops412/ha-super-productivity",
+  "icon": "icon.svg",
+  "iFrame": true,
+  "sidePanel": true,
+  "permissions": [],
+  "hooks": ["taskComplete", "currentTaskChange", "finishDay"],
+  "type": "extension"
+}

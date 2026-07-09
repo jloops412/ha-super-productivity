@@ -86,14 +86,56 @@ class CurrentTaskSensor(SuperProductivitySensorBase):
         """Return extra attributes about the current task."""
         if self._data and self._data.current_task:
             task = self._data.current_task
+            # Calculate time spent in human-readable format
+            time_spent_ms = task.get("timeSpent", 0)
+            time_estimate_ms = task.get("timeEstimate", 0)
+            hours_spent = round(time_spent_ms / 3_600_000, 2)
+            mins_spent = round(time_spent_ms / 60_000, 1)
+            hours_est = round(time_estimate_ms / 3_600_000, 2)
+
+            # Progress percentage
+            progress = None
+            if time_estimate_ms > 0:
+                progress = min(round((time_spent_ms / time_estimate_ms) * 100, 1), 999)
+
+            # Find project name
+            project_name = None
+            project_id = task.get("projectId")
+            if project_id and self._data.projects:
+                for p in self._data.projects:
+                    if p.get("id") == project_id:
+                        project_name = p.get("title")
+                        break
+
+            # Find tag names
+            tag_names = []
+            tag_ids = task.get("tagIds", [])
+            if tag_ids and self._data.tags:
+                tag_map = {t.get("id"): t.get("title") for t in self._data.tags}
+                tag_names = [tag_map.get(tid, tid) for tid in tag_ids]
+
+            # Subtask info
+            sub_task_ids = task.get("subTaskIds", [])
+
             return {
                 "task_id": task.get("id"),
-                "project_id": task.get("projectId"),
-                "time_spent_ms": task.get("timeSpent", 0),
-                "time_estimate_ms": task.get("timeEstimate", 0),
+                "project_id": project_id,
+                "project_name": project_name,
+                "time_spent_hours": hours_spent,
+                "time_spent_minutes": mins_spent,
+                "time_spent_ms": time_spent_ms,
+                "time_estimate_hours": hours_est,
+                "time_estimate_ms": time_estimate_ms,
+                "progress_percent": progress,
                 "is_done": task.get("isDone", False),
-                "notes": task.get("notes"),
-                "tag_ids": task.get("tagIds", []),
+                "notes": task.get("notes") or None,
+                "tag_ids": tag_ids,
+                "tag_names": tag_names,
+                "subtask_count": len(sub_task_ids),
+                "due_day": task.get("dueDay"),
+                "due_with_time": task.get("dueWithTime"),
+                "planned_at": task.get("plannedAt"),
+                "created": task.get("created"),
             }
         return None
 

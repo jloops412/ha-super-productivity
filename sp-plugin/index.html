@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Home Assistant Bridge</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      padding: 20px;
+      color: var(--primary-text-color, #e0e0e0);
+      background: transparent;
+    }
+    .container { max-width: 400px; margin: 0 auto; }
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .header h1 { font-size: 1.2em; font-weight: 600; }
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 0.75em;
+      font-weight: 500;
+    }
+    .status-badge.connected {
+      background: rgba(76, 175, 80, 0.2);
+      color: #66bb6a;
+      border: 1px solid rgba(76, 175, 80, 0.3);
+    }
+    .status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #66bb6a;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+    .info-card {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 12px;
+    }
+    .info-card h3 {
+      font-size: 0.8em;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      opacity: 0.6;
+      margin-bottom: 8px;
+    }
+    .info-card p { font-size: 0.9em; line-height: 1.5; }
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .stat-row:last-child { border-bottom: none; }
+    .stat-label { opacity: 0.7; font-size: 0.85em; }
+    .stat-value { font-weight: 600; font-size: 1.1em; }
+    .features {
+      margin-top: 20px;
+      padding: 0;
+      list-style: none;
+    }
+    .features li {
+      padding: 6px 0;
+      font-size: 0.85em;
+      opacity: 0.8;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .features li::before {
+      content: "✓";
+      color: #66bb6a;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Home Assistant Bridge</h1>
+      <span class="status-badge connected">
+        <span class="status-dot"></span>
+        Connected
+      </span>
+    </div>
+
+    <div class="info-card">
+      <h3>Connection</h3>
+      <div class="stat-row">
+        <span class="stat-label">API Port</span>
+        <span class="stat-value">3876</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Poll Interval</span>
+        <span class="stat-value">30s</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Status</span>
+        <span class="stat-value" id="api-status">Active</span>
+      </div>
+    </div>
+
+    <div class="info-card">
+      <h3>What HA Can See</h3>
+      <div class="stat-row">
+        <span class="stat-label">Active Tasks</span>
+        <span class="stat-value" id="task-count">--</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Projects</span>
+        <span class="stat-value" id="project-count">--</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Tags</span>
+        <span class="stat-value" id="tag-count">--</span>
+      </div>
+    </div>
+
+    <div class="info-card">
+      <h3>HA Capabilities</h3>
+      <ul class="features">
+        <li>View and manage tasks from HA dashboard</li>
+        <li>Start/stop time tracking remotely</li>
+        <li>Create tasks via voice or automations</li>
+        <li>Focus lighting when tracking</li>
+        <li>Break reminders and daily summaries</li>
+        <li>Complete and archive tasks from HA</li>
+      </ul>
+    </div>
+  </div>
+
+  <script>
+    async function updateStats() {
+      try {
+        const tasks = await PluginAPI.getTasks();
+        const projects = await PluginAPI.getAllProjects();
+        const tags = await PluginAPI.getAllTags();
+
+        document.getElementById('task-count').textContent = tasks.length;
+        document.getElementById('project-count').textContent = projects.length;
+        document.getElementById('tag-count').textContent = tags.length;
+      } catch (e) {
+        console.error('[HA Bridge] Error fetching stats:', e);
+      }
+    }
+
+    // Update on load and periodically
+    updateStats();
+    setInterval(updateStats, 30000);
+  </script>
+</body>
+</html>
