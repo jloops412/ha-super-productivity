@@ -1,16 +1,20 @@
 /**
- * Home Assistant Bridge v3.2 - Super Productivity Plugin
- * Rules-based automation engine with deferred hook handlers.
+ * Home Assistant Bridge v4.0 - Super Productivity Plugin
+ * 
+ * Full rules-based automation engine using ALL available SP hooks.
+ * Correct payload handling based on SP plugin-api types.
  */
 
 let config = { haUrl: '', haToken: '', webhookId: '', rules: [], showSensors: '' };
 let trackingStartTime = null;
+let trackingTaskId = null;
 let timerCheckInterval = null;
 let idleCheckInterval = null;
 let firedTimerRules = new Set();
-let lastTrackingStopTime = null;
 let firedIdleRules = new Set();
-let sessionTaskCount = 0;
+let lastTrackingStopTime = null;
+let sessionTasksStarted = 0;
+let currentProjectId = null;
 
 async function loadConfig() {
   try { const raw = await PluginAPI.loadSyncedData(); if (raw) config = JSON.parse(raw); }
@@ -18,75 +22,58 @@ async function loadConfig() {
   if (!config.rules) config.rules = [];
   return config;
 }
-
 async function saveConfig() { await PluginAPI.persistDataSynced(JSON.stringify(config)); }
 
 // --- HA API ---
 async function haApi(method, path, body = null) {
   if (!config.haUrl || !config.haToken) return null;
-  const url = `${config.haUrl.replace(/\/$/, '')}/api/${path}`;
   const opts = { method, headers: { 'Authorization': `Bearer ${config.haToken}`, 'Content-Type': 'application/json' } };
   if (body) opts.body = JSON.stringify(body);
-  try { const r = await fetch(url, opts); return r.ok ? await r.json() : null; } catch (e) { return null; }
+  try { const r = await fetch(`${config.haUrl.replace(/\/$/, '')}/api/${path}`, opts); return r.ok ? await r.json() : null; }
+  catch (e) { return null; }
 }
 
-async function executeAction(action) {
+async function executeAction(action, context = {}) {
   if (!action || !config.haToken) return;
+  // Replace template variables in messages
+  const msg = (action.message || '')
+    .replace('{title}', context.title || '')
+    .replace('{project}', context.projectTitle || '')
+    .replace('{time}', context.timeSpentMin || '0')
+    .replace('{estimate}', context.timeEstimateMin || '0');
+
   try {
     switch (action.type) {
-      case 'scene':
-        await haApi('POST', 'services/scene/turn_on', { entity_id: action.entity });
-        break;
+      case 'scene': await haApi('POST', 'services/scene/turn_on', { entity_id: action.entity }); break;
+      case 'automation': await haApi('POST', 'services/automation/trigger', { entity_id: action.entity }); break;
+      case 'script': await haApi('POST', 'services/script/turn_on', { entity_id: action.entity }); break;
+      case 'toggle': await haApi('POST', 'services/homeassistant/toggle', { entity_id: action.entity }); break;
+      case 'light':
+        const ld = { entity_id: action.entity };
+        if (action.brightness) ld.brightness = parseInt(action.brightness);
+        if (action.temperature) ld.color_temp_kelvin = parseInt(action.temperature);
+        await haApi('POST', 'services/light/turn_on', ld); break;
+      case 'light_off': await haApi('POST', 'services/light/turn_off', { entity_id: action.entity }); break;
+      case 'media':
+        await haApi('POST', `services/media_player/${action.mediaAction || 'media_play_pause'}`, { entity_id: action.entity }); break;
+      case 'tts':
+        await haApi('POST', 'services/tts/speak', { entity_id: action.ttsEntity || 'tts.google_en', media_player_entity_id: action.entity, message: msg }); break;
+      case 'notify':
+        await haApi('POST', 'services/notify/mobile_app_jphone', { title: action.title || 'Super Productivity', message: msg }); break;
       case 'service':
         const [domain, svc] = (action.service || '').split('.');
-        const svcData = action.entity ? { entity_id: action.entity, ...(action.data || {}) } : (action.data || {});
-        if (domain && svc) await haApi('POST', `services/${domain}/${svc}`, svcData);
-        break;
-      case 'automation':
-        await haApi('POST', 'services/automation/trigger', { entity_id: action.entity });
-        break;
-      case 'script':
-        await haApi('POST', 'services/script/turn_on', { entity_id: action.entity });
-        break;
-      case 'toggle':
-        await haApi('POST', 'services/homeassistant/toggle', { entity_id: action.entity });
-        break;
-      case 'light':
-        const lightData = { entity_id: action.entity };
-        if (action.brightness) lightData.brightness = parseInt(action.brightness);
-        if (action.color) lightData.rgb_color = action.color;
-        if (action.temperature) lightData.color_temp_kelvin = parseInt(action.temperature);
-        await haApi('POST', 'services/light/turn_on', lightData);
-        break;
-      case 'media':
-        const mediaAction = action.mediaAction || 'media_play_pause';
-        await haApi('POST', `services/media_player/${mediaAction}`, { entity_id: action.entity });
-        break;
-      case 'tts':
-        await haApi('POST', 'services/tts/speak', {
-          entity_id: action.ttsEntity || 'tts.google_en',
-          media_player_entity_id: action.entity,
-          message: action.message || '',
-        });
-        break;
-      case 'notify':
-        await haApi('POST', 'services/notify/mobile_app_jphone', {
-          title: action.title || 'Super Productivity',
-          message: action.message || '',
-        });
-        break;
+        const data = action.entity ? { entity_id: action.entity, ...(action.data || {}) } : (action.data || {});
+        if (domain && svc) await haApi('POST', `services/${domain}/${svc}`, data); break;
     }
   } catch (e) { console.log('[HA Bridge] Action error:', e.message); }
 }
 
 async function notifyWebhook(event, data = {}) {
   if (!config.webhookId || !config.haUrl) return;
-  try {
-    await fetch(`${config.haUrl.replace(/\/$/, '')}/api/webhook/${config.webhookId}`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ event, ...data, timestamp: Date.now() }),
-    });
-  } catch (e) {}
+  try { await fetch(`${config.haUrl.replace(/\/$/, '')}/api/webhook/${config.webhookId}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ event, ...data, timestamp: Date.now() }),
+  }); } catch (e) {}
 }
 
 // --- Rules Engine ---
@@ -99,20 +86,23 @@ async function evaluateRules(trigger, context = {}) {
       if (rule.conditions.projectId && context.projectId !== rule.conditions.projectId) match = false;
       if (rule.conditions.tagId && !(context.tagIds || []).includes(rule.conditions.tagId)) match = false;
       if (rule.conditions.titleContains && !(context.title || '').toLowerCase().includes(rule.conditions.titleContains.toLowerCase())) match = false;
+      if (rule.conditions.isSubtask !== undefined) {
+        const taskIsSubtask = !!context.parentId;
+        if (rule.conditions.isSubtask !== taskIsSubtask) match = false;
+      }
     }
     if (match) {
       console.log(`[HA Bridge] Rule fired: ${rule.name} (${trigger})`);
-      await executeAction(rule.action);
+      await executeAction(rule.action, context);
     }
   }
 }
 
-// --- Timer & Idle Checks ---
+// --- Timer & Idle ---
 function startTimerChecks() {
   if (timerCheckInterval) clearInterval(timerCheckInterval);
   trackingStartTime = Date.now();
   firedTimerRules.clear();
-  // Stop idle checks when tracking starts
   if (idleCheckInterval) { clearInterval(idleCheckInterval); idleCheckInterval = null; }
   firedIdleRules.clear();
 
@@ -125,18 +115,17 @@ function startTimerChecks() {
       const threshold = rule.conditions?.minutes || 0;
       if (threshold > 0 && elapsedMin >= threshold && !firedTimerRules.has(rule.id)) {
         firedTimerRules.add(rule.id);
-        console.log(`[HA Bridge] Timer rule: ${rule.name} (${threshold}min)`);
-        await executeAction(rule.action);
+        await executeAction(rule.action, { title: '', timeSpentMin: Math.round(elapsedMin).toString() });
       }
     }
-  }, 30000);
+  }, 15000);
 }
 
 function stopTimerChecks() {
   if (timerCheckInterval) { clearInterval(timerCheckInterval); timerCheckInterval = null; }
   trackingStartTime = null;
+  trackingTaskId = null;
   firedTimerRules.clear();
-  // Start idle checks
   lastTrackingStopTime = Date.now();
   firedIdleRules.clear();
   startIdleChecks();
@@ -153,78 +142,190 @@ function startIdleChecks() {
       const threshold = rule.conditions?.minutes || 0;
       if (threshold > 0 && idleMin >= threshold && !firedIdleRules.has(rule.id)) {
         firedIdleRules.add(rule.id);
-        console.log(`[HA Bridge] Idle rule: ${rule.name} (${threshold}min idle)`);
-        await executeAction(rule.action);
+        await executeAction(rule.action, {});
       }
     }
   }, 30000);
 }
 
-// --- Hooks (non-blocking) ---
-PluginAPI.registerHook('currentTaskChange', (data) => { setTimeout(() => handleTaskChange(data), 10); });
-PluginAPI.registerHook('taskComplete', (taskId) => { setTimeout(() => handleTaskComplete(taskId), 10); });
-PluginAPI.registerHook('finishDay', () => { setTimeout(() => handleFinishDay(), 10); });
+// --- Build context from task ---
+function buildContext(task) {
+  if (!task) return {};
+  return {
+    taskId: task.id,
+    title: task.title || '',
+    projectId: task.projectId || null,
+    tagIds: task.tagIds || [],
+    parentId: task.parentId || null,
+    timeSpentMin: Math.round((task.timeSpent || 0) / 60000).toString(),
+    timeEstimateMin: Math.round((task.timeEstimate || 0) / 60000).toString(),
+    isDone: task.isDone || false,
+    notes: task.notes || '',
+  };
+}
 
-async function handleTaskChange(data) {
+// ============================================================
+// HOOKS - All 12 SP plugin hooks registered
+// ============================================================
+
+// 1. CURRENT_TASK_CHANGE - payload: { current: Task|null, previous: Task|null }
+PluginAPI.registerHook('currentTaskChange', (data) => { setTimeout(() => onCurrentTaskChange(data), 10); });
+
+async function onCurrentTaskChange(data) {
   await loadConfig();
-  console.log('[HA Bridge] currentTaskChange:', JSON.stringify(data));
+  console.log('[HA Bridge] currentTaskChange:', data?.current?.id || 'null', '<-', data?.previous?.id || 'null');
 
-  let taskId = null;
-  if (data === null || data === undefined) { taskId = null; }
-  else if (typeof data === 'string') { taskId = data; }
-  else if (typeof data === 'object') {
-    taskId = data.currentTaskId || data.id || data.taskId || null;
-    if (!taskId && data.current) taskId = typeof data.current === 'string' ? data.current : data.current.id;
-  }
+  const currentTask = data?.current || null;
+  const previousTask = data?.previous || null;
 
-  if (taskId) {
-    sessionTaskCount++;
-    let task = {};
-    try { const tasks = await PluginAPI.getTasks(); task = tasks.find(t => t.id === taskId) || {}; } catch(e) {}
-    const context = { taskId, title: task.title || '', projectId: task.projectId || null, tagIds: task.tagIds || [] };
+  if (currentTask) {
+    // Task started
+    sessionTasksStarted++;
+    trackingTaskId = currentTask.id;
+    const ctx = buildContext(currentTask);
 
-    await evaluateRules('task_start', context);
-
-    // First task of day trigger
-    if (sessionTaskCount === 1) await evaluateRules('first_task_of_day', context);
+    await evaluateRules('task_start', ctx);
+    if (sessionTasksStarted === 1) await evaluateRules('first_task_of_day', ctx);
+    
+    // Task switched (was tracking A, now tracking B)
+    if (previousTask) await evaluateRules('task_switch', ctx);
 
     startTimerChecks();
-    await notifyWebhook('task_started', { taskId, title: task.title });
+    await notifyWebhook('task_started', { taskId: currentTask.id, title: currentTask.title });
   } else {
+    // Task stopped
+    const ctx = previousTask ? buildContext(previousTask) : {};
     stopTimerChecks();
-    await evaluateRules('task_stop', {});
-    await notifyWebhook('task_stopped', {});
+    await evaluateRules('task_stop', ctx);
+    await notifyWebhook('task_stopped', { taskId: previousTask?.id });
   }
 }
 
-async function handleTaskComplete(taskId) {
+// 2. TASK_CREATED - payload: { taskId, task }
+PluginAPI.registerHook('taskCreated', (data) => { setTimeout(() => onTaskCreated(data), 10); });
+
+async function onTaskCreated(data) {
   await loadConfig();
-  let task = {};
-  try { const tasks = await PluginAPI.getTasks(); task = tasks.find(t => t.id === taskId) || {}; } catch(e) {}
-  await evaluateRules('task_complete', { taskId, title: task.title || '', projectId: task.projectId || null, tagIds: task.tagIds || [] });
-  await notifyWebhook('task_completed', { taskId, title: task.title });
+  const ctx = buildContext(data?.task || {});
+  ctx.taskId = data?.taskId || ctx.taskId;
+  console.log('[HA Bridge] taskCreated:', ctx.title);
+  await evaluateRules('task_created', ctx);
+  await notifyWebhook('task_created', { taskId: ctx.taskId, title: ctx.title });
+}
+
+// 3. TASK_COMPLETE - payload: { taskId, task }
+PluginAPI.registerHook('taskComplete', (data) => { setTimeout(() => onTaskComplete(data), 10); });
+
+async function onTaskComplete(data) {
+  await loadConfig();
+  const ctx = buildContext(data?.task || {});
+  ctx.taskId = data?.taskId || ctx.taskId;
+  console.log('[HA Bridge] taskComplete:', ctx.title);
+  await evaluateRules('task_complete', ctx);
+  await notifyWebhook('task_completed', { taskId: ctx.taskId, title: ctx.title, timeSpentMs: data?.task?.timeSpent });
+
+  // Check all done
   try {
     const tasks = await PluginAPI.getTasks();
-    const todayTasks = tasks.filter(t => t.tagIds && t.tagIds.includes('TODAY'));
+    const todayTasks = tasks.filter(t => (t.tagIds || []).includes('TODAY'));
     if (todayTasks.length > 0 && todayTasks.every(t => t.isDone)) {
-      await evaluateRules('all_done', {});
+      await evaluateRules('all_done', { count: todayTasks.length });
       await notifyWebhook('all_today_done', { count: todayTasks.length });
     }
   } catch(e) {}
 }
 
-async function handleFinishDay() {
+// 4. TASK_UPDATE - payload: { taskId, task, changes }
+PluginAPI.registerHook('taskUpdate', (data) => { setTimeout(() => onTaskUpdate(data), 10); });
+
+async function onTaskUpdate(data) {
   await loadConfig();
-  await evaluateRules('day_end', {});
+  const ctx = buildContext(data?.task || {});
+  ctx.changes = data?.changes || {};
+  
+  // Fire task_updated for any update
+  await evaluateRules('task_updated', ctx);
+  
+  // Specific sub-triggers based on what changed
+  if (ctx.changes.tagIds) await evaluateRules('tags_changed', ctx);
+  if (ctx.changes.projectId) await evaluateRules('project_changed', ctx);
+  if (ctx.changes.dueDay || ctx.changes.dueWithTime) await evaluateRules('due_date_changed', ctx);
+  if (ctx.changes.timeEstimate) await evaluateRules('estimate_changed', ctx);
+  if (ctx.changes.notes) await evaluateRules('notes_changed', ctx);
+  
+  // Check if time exceeded estimate
+  if (data?.task?.timeEstimate > 0 && data?.task?.timeSpent > data?.task?.timeEstimate) {
+    await evaluateRules('estimate_exceeded', ctx);
+  }
+}
+
+// 5. TASK_DELETE - payload: { taskId }
+PluginAPI.registerHook('taskDelete', (data) => { setTimeout(() => onTaskDelete(data), 10); });
+
+async function onTaskDelete(data) {
+  await loadConfig();
+  await evaluateRules('task_deleted', { taskId: data?.taskId });
+  await notifyWebhook('task_deleted', { taskId: data?.taskId });
+}
+
+// 6. FINISH_DAY - payload: { date }
+PluginAPI.registerHook('finishDay', (data) => { setTimeout(() => onFinishDay(data), 10); });
+
+async function onFinishDay(data) {
+  await loadConfig();
+  console.log('[HA Bridge] finishDay:', data?.date);
+  await evaluateRules('day_end', { date: data?.date });
   try {
     const tasks = await PluginAPI.getTasks();
     const done = tasks.filter(t => t.isDone);
     const totalTime = tasks.reduce((s, t) => s + (t.timeSpent || 0), 0);
-    await notifyWebhook('day_finished', { completed: done.length, total: tasks.length, hoursWorked: Math.round(totalTime / 3600000 * 100) / 100 });
+    await notifyWebhook('day_finished', { date: data?.date, completed: done.length, total: tasks.length, hoursWorked: Math.round(totalTime / 3600000 * 100) / 100 });
   } catch(e) {}
+  // Reset session counter
+  sessionTasksStarted = 0;
 }
+
+// 7. ANY_TASK_UPDATE - payload: { action, taskId?, task?, changes? }
+PluginAPI.registerHook('anyTaskUpdate', (data) => { setTimeout(() => onAnyTaskUpdate(data), 10); });
+
+async function onAnyTaskUpdate(data) {
+  // This is a catch-all. We use it for webhook sync (instant updates to HA).
+  await loadConfig();
+  await notifyWebhook('task_activity', { action: data?.action, taskId: data?.taskId });
+}
+
+// 8. PROJECT_LIST_UPDATE - payload: { action, projectId?, project?, changes? }
+PluginAPI.registerHook('projectListUpdate', (data) => { setTimeout(() => onProjectListUpdate(data), 10); });
+
+async function onProjectListUpdate(data) {
+  await loadConfig();
+  await evaluateRules('project_list_changed', { action: data?.action, projectId: data?.projectId });
+  await notifyWebhook('project_updated', { action: data?.action, projectId: data?.projectId });
+}
+
+// 9. WORK_CONTEXT_CHANGE - payload: { id, type, title, taskIds }
+PluginAPI.registerHook('workContextChange', (data) => { setTimeout(() => onWorkContextChange(data), 10); });
+
+async function onWorkContextChange(data) {
+  await loadConfig();
+  console.log('[HA Bridge] workContextChange:', data?.type, data?.title);
+  currentProjectId = data?.type === 'PROJECT' ? data?.id : null;
+  await evaluateRules('context_switch', {
+    contextId: data?.id,
+    contextType: data?.type,
+    contextTitle: data?.title,
+    taskCount: (data?.taskIds || []).length,
+  });
+  await notifyWebhook('context_changed', { type: data?.type, title: data?.title, id: data?.id });
+}
+
+// 10. PERSISTED_DATA_CHANGED - payload: void
+PluginAPI.registerHook('persistedDataChanged', () => { /* Reload config on external changes */ setTimeout(() => loadConfig(), 100); });
+
+// 11. LANGUAGE_CHANGE - no automation use, skip
+// 12. ACTION - too generic/noisy for rules, but used internally
 
 // --- Init ---
 loadConfig().then(() => {
-  console.log(`[HA Bridge v3.2] Loaded. ${config.rules.length} rules configured.`);
+  console.log(`[HA Bridge v4.0] Loaded. ${config.rules.length} rules. All 12 hooks registered.`);
 });

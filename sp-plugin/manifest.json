@@ -1,8 +1,8 @@
 {
   "id": "home-assistant-bridge",
   "name": "Home Assistant Bridge",
-  "version": "3.2.0",
-  "description": "Full bidirectional bridge between Super Productivity and Home Assistant. Control your smart home from SP, view HA sensor data, and get instant task sync with HA automations.",
+  "version": "4.0.0",
+  "description": "Bidirectional bridge between Super Productivity and Home Assistant. Rules-based automation engine with 20 triggers and 10 action types. Control lights, scenes, media, automations, and notifications based on your task activity.",
   "manifestVersion": 1,
   "minSupVersion": "10.0.0",
   "author": "jloops412",
@@ -12,5 +12,5 @@
   "sidePanel": false,
   "isSkipMenuEntry": false,
   "permissions": [],
-  "hooks": ["taskComplete", "currentTaskChange", "finishDay"]
+  "hooks": ["taskCreated", "taskComplete", "taskUpdate", "taskDelete", "currentTaskChange", "finishDay", "anyTaskUpdate", "projectListUpdate", "workContextChange", "persistedDataChanged"]
 }

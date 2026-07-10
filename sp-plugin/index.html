@@ -51,13 +51,25 @@
 <div class="card-title">Edit Rule</div>
 <div class="field"><label>Rule Name</label><input id="re-name" placeholder="Focus mode on start"></div>
 <div class="field"><label>Trigger</label><select id="re-trigger" onchange="toggleTimerField()">
-<option value="task_start">Task Started</option>
-<option value="task_stop">Task Stopped</option>
-<option value="task_complete">Task Completed</option>
+<option value="task_start">Task Started (tracking begins)</option>
+<option value="task_stop">Task Stopped (tracking ends)</option>
+<option value="task_switch">Task Switched (changed to different task)</option>
+<option value="task_complete">Task Completed (marked done)</option>
+<option value="task_created">Task Created (new task added)</option>
+<option value="task_updated">Task Updated (any field change)</option>
+<option value="task_deleted">Task Deleted</option>
+<option value="tags_changed">Tags Changed (on a task)</option>
+<option value="project_changed">Project Changed (task moved)</option>
+<option value="due_date_changed">Due Date Changed</option>
+<option value="estimate_changed">Time Estimate Changed</option>
+<option value="estimate_exceeded">Time Estimate Exceeded</option>
+<option value="notes_changed">Notes Updated</option>
 <option value="first_task_of_day">First Task of Day</option>
 <option value="all_done">All Today's Tasks Done</option>
 <option value="timer">Timer (X min of tracking)</option>
 <option value="idle">Idle (X min no tracking)</option>
+<option value="context_switch">Context/View Switched</option>
+<option value="project_list_changed">Project List Changed</option>
 <option value="day_end">Day Finished</option>
 </select></div>
 <div class="field" id="re-timer-field" style="display:none"><label>Minutes</label><input id="re-minutes" type="number" placeholder="25"></div>
@@ -72,6 +84,7 @@
 <option value="script">Run Script</option>
 <option value="toggle">Toggle Entity</option>
 <option value="light">Set Light (color/brightness)</option>
+<option value="light_off">Turn Off Light</option>
 <option value="media">Media Control</option>
 <option value="tts">TTS Announcement</option>
 <option value="service">Custom Service Call</option>
@@ -257,8 +270,8 @@ grid.appendChild(c);}}
 function renderRules(){
 const list=document.getElementById('rules-list');
 if(!config.rules.length){list.innerHTML='<p style="text-align:center;opacity:.4;padding:20px">No rules yet. Add one to automate your smart home based on your tasks.</p>';return;}
-const trigLabels={task_start:'Start',task_stop:'Stop',task_complete:'Complete',first_task_of_day:'First Task',all_done:'All Done',timer:'Timer',idle:'Idle',day_end:'Day End'};
-const actLabels={scene:'Scene',automation:'Automation',script:'Script',toggle:'Toggle',light:'Light',media:'Media',tts:'TTS',service:'Service',notify:'Notify'};
+const trigLabels={task_start:'Start',task_stop:'Stop',task_switch:'Switch',task_complete:'Complete',task_created:'Created',task_updated:'Updated',task_deleted:'Deleted',tags_changed:'Tags',project_changed:'Project',due_date_changed:'Due Date',estimate_changed:'Estimate',estimate_exceeded:'Over Est.',notes_changed:'Notes',first_task_of_day:'1st Task',all_done:'All Done',timer:'Timer',idle:'Idle',context_switch:'Context',project_list_changed:'Projects',day_end:'Day End'};
+const actLabels={scene:'Scene',automation:'Automation',script:'Script',toggle:'Toggle',light:'Light',light_off:'Light Off',media:'Media',tts:'TTS',service:'Service',notify:'Notify'};
 list.innerHTML=config.rules.map((r,i)=>{
 const trig=trigLabels[r.trigger]||r.trigger;
 const mins=r.conditions?.minutes?` (${r.conditions.minutes}m)`:'';
@@ -282,7 +295,7 @@ function toggleTimerField(){const t=document.getElementById('re-trigger').value;
 function toggleActionFields(){
 const t=document.getElementById('re-action-type').value;
 document.querySelectorAll('.action-field').forEach(f=>f.style.display='none');
-const show={scene:['af-scene'],automation:['af-automation'],script:['af-script'],toggle:['af-toggle'],light:['af-light','af-brightness','af-color-temp'],media:['af-media','af-media-action'],tts:['af-tts-entity','af-tts-msg'],service:['af-service','af-entity'],notify:['af-notify']};
+const show={scene:['af-scene'],automation:['af-automation'],script:['af-script'],toggle:['af-toggle'],light:['af-light','af-brightness','af-color-temp'],light_off:['af-light'],media:['af-media','af-media-action'],tts:['af-tts-entity','af-tts-msg'],service:['af-service','af-entity'],notify:['af-notify']};
 (show[t]||[]).forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='';});}
 
 function populateActionDropdowns(currentEntity){
@@ -328,7 +341,7 @@ case'scene':rule.action.entity=document.getElementById('re-scene').value;break;
 case'automation':rule.action.entity=document.getElementById('re-automation').value;break;
 case'script':rule.action.entity=document.getElementById('re-script').value;break;
 case'toggle':rule.action.entity=document.getElementById('re-toggle-entity').value;break;
-case'light':rule.action.entity=document.getElementById('re-light-entity').value;rule.action.brightness=document.getElementById('re-brightness').value;rule.action.temperature=document.getElementById('re-color-temp').value;break;
+case'light':rule.action.entity=document.getElementById('re-light-entity').value;rule.action.brightness=document.getElementById('re-brightness').value;rule.action.temperature=document.getElementById('re-color-temp').value;break;case'light_off':rule.action.entity=document.getElementById('re-light-entity').value;break;
 case'media':rule.action.entity=document.getElementById('re-media-entity').value;rule.action.mediaAction=document.getElementById('re-media-action').value;break;
 case'tts':rule.action.entity=document.getElementById('re-tts-speaker').value;rule.action.message=document.getElementById('re-tts-message').value;break;
 case'service':rule.action.service=document.getElementById('re-service').value.trim();rule.action.entity=document.getElementById('re-entity').value;break;
