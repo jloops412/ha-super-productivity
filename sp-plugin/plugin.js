@@ -1,8 +1,8 @@
 /**
- * Home Assistant Bridge v4.0 - Super Productivity Plugin
+ * Home Assistant Bridge v4.1 - Super Productivity Plugin
  * 
  * Full rules-based automation engine using ALL available SP hooks.
- * Correct payload handling based on SP plugin-api types.
+ * Config managed in plugin.js (host context) - persists across iframe reloads.
  */
 
 let config = { haUrl: '', haToken: '', webhookId: '', rules: [], showSensors: '' };
@@ -15,14 +15,56 @@ let firedIdleRules = new Set();
 let lastTrackingStopTime = null;
 let sessionTasksStarted = 0;
 let currentProjectId = null;
+let configLoaded = false;
 
 async function loadConfig() {
-  try { const raw = await PluginAPI.loadSyncedData(); if (raw) config = JSON.parse(raw); }
-  catch (e) { config = { haUrl:'', haToken:'', webhookId:'', rules:[], showSensors:'' }; }
+  try {
+    const raw = await PluginAPI.loadSyncedData();
+    if (raw) {
+      config = JSON.parse(raw);
+      console.log('[HA Bridge] Config loaded:', config.rules?.length || 0, 'rules');
+    } else {
+      console.log('[HA Bridge] No saved config found');
+    }
+  } catch (e) {
+    console.log('[HA Bridge] Config load error:', e.message);
+    config = { haUrl: '', haToken: '', webhookId: '', rules: [], showSensors: '' };
+  }
   if (!config.rules) config.rules = [];
+  configLoaded = true;
   return config;
 }
-async function saveConfig() { await PluginAPI.persistDataSynced(JSON.stringify(config)); }
+
+async function saveConfig() {
+  try {
+    const data = JSON.stringify(config);
+    await PluginAPI.persistDataSynced(data);
+    console.log('[HA Bridge] Config saved (' + data.length + ' bytes)');
+  } catch (e) {
+    console.log('[HA Bridge] Config save error:', e.message);
+  }
+}
+
+// Expose config to iframe via window messaging
+// The iframe will postMessage to request/update config
+if (typeof window !== 'undefined') {
+  window.addEventListener('message', async (event) => {
+    const msg = event.data;
+    if (!msg || !msg.type || !msg.type.startsWith('ha-bridge-')) return;
+
+    switch (msg.type) {
+      case 'ha-bridge-get-config':
+        if (!configLoaded) await loadConfig();
+        window.postMessage({ type: 'ha-bridge-config', config: config }, '*');
+        break;
+      case 'ha-bridge-save-config':
+        config = msg.config;
+        await saveConfig();
+        window.postMessage({ type: 'ha-bridge-config-saved', success: true }, '*');
+        break;
+    }
+  });
+}
 
 // --- HA API ---
 async function haApi(method, path, body = null) {
