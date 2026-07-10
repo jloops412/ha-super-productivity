@@ -127,20 +127,45 @@ function stopTimerChecks() {
 // --- Hooks ---
 PluginAPI.registerHook('currentTaskChange', async (data) => {
   await loadConfig();
-  if (data && data.currentTaskId) {
+  
+  // Debug: log exactly what SP sends us
+  console.log('[HA Bridge] currentTaskChange raw data:', JSON.stringify(data));
+  
+  // SP may pass the task object directly, or {currentTaskId, task}, or just the taskId as a string
+  let taskId = null;
+  let task = {};
+  
+  if (typeof data === 'string') {
+    // data is just the task ID
+    taskId = data;
+  } else if (data && typeof data === 'object') {
+    // Try various formats SP might use
+    taskId = data.currentTaskId || data.id || data.taskId || null;
+    task = data.task || data || {};
+  }
+  
+  // If we got a taskId, look up the full task
+  if (taskId && !task.title) {
+    try {
+      const tasks = await PluginAPI.getTasks();
+      task = tasks.find(t => t.id === taskId) || {};
+    } catch(e) {}
+  }
+  
+  if (taskId) {
     // Task started
-    const tasks = await PluginAPI.getTasks();
-    const task = tasks.find(t => t.id === data.currentTaskId) || {};
+    console.log('[HA Bridge] Task STARTED:', taskId, task.title || '');
     await evaluateRules('task_start', {
-      taskId: data.currentTaskId,
-      title: task.title,
-      projectId: task.projectId,
+      taskId: taskId,
+      title: task.title || '',
+      projectId: task.projectId || null,
       tagIds: task.tagIds || [],
     });
     startTimerChecks();
-    await notifyWebhook('task_started', { taskId: data.currentTaskId, title: task.title });
+    await notifyWebhook('task_started', { taskId, title: task.title });
   } else {
-    // Task stopped
+    // Task stopped (data is null/undefined or has no task ID)
+    console.log('[HA Bridge] Task STOPPED');
     stopTimerChecks();
     await evaluateRules('task_stop', {});
     await notifyWebhook('task_stopped', {});
