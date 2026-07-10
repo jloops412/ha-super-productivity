@@ -1,12 +1,14 @@
 /**
- * Home Assistant Bridge v4.1 - Super Productivity Plugin
+ * Home Assistant Bridge v4.2 - Super Productivity Plugin
  * 
  * Full rules-based automation engine using ALL available SP hooks.
- * Config ONLY managed here in plugin.js (host context).
- * Iframe communicates via PluginAPI messaging.
+ * 
+ * SECURITY: haToken stored via PluginAPI.setSecret() (never synced/exported).
+ * Non-secret config stored via PluginAPI.persistDataSynced() (synced across devices).
  */
 
-let config = { haUrl: '', haToken: '', webhookId: '', rules: [], showSensors: '' };
+let config = { haUrl: '', webhookId: '', rules: [], showSensors: '' };
+let haToken = ''; // Stored separately via setSecret, never in synced data
 let trackingStartTime = null;
 let trackingTaskId = null;
 let timerCheckInterval = null;
@@ -21,7 +23,16 @@ async function loadConfig() {
   try {
     const raw = await PluginAPI.loadSyncedData();
     if (raw && raw.length > 2) {
-      config = JSON.parse(raw);
+      const parsed = JSON.parse(raw);
+      // Migration: if old config has haToken in synced data, move it to secret
+      if (parsed.haToken) {
+        await PluginAPI.setSecret('haToken', parsed.haToken);
+        haToken = parsed.haToken;
+        delete parsed.haToken;
+        await PluginAPI.persistDataSynced(JSON.stringify(parsed));
+        console.log('[HA Bridge] Migrated haToken from synced data to secret storage');
+      }
+      config = parsed;
       console.log('[HA Bridge] Config loaded:', config.rules?.length || 0, 'rules, haUrl:', config.haUrl ? 'set' : 'empty');
     } else {
       console.log('[HA Bridge] No saved config found, using defaults');
@@ -30,14 +41,29 @@ async function loadConfig() {
     console.log('[HA Bridge] Config load error:', e);
   }
   if (!config.rules) config.rules = [];
+  
+  // Load token from secret storage
+  try {
+    const secret = await PluginAPI.getSecret('haToken');
+    if (secret) {
+      haToken = secret;
+      console.log('[HA Bridge] Token loaded from secret storage');
+    }
+  } catch (e) {
+    console.log('[HA Bridge] Secret load error:', e);
+  }
+  
   return config;
 }
 
 async function saveConfig() {
   try {
-    const data = JSON.stringify(config);
+    // Never include haToken in synced data
+    const safeConfig = { ...config };
+    delete safeConfig.haToken; // Safety: ensure token never leaks to sync
+    const data = JSON.stringify(safeConfig);
     await PluginAPI.persistDataSynced(data);
-    console.log('[HA Bridge] Config persisted (' + data.length + ' chars)');
+    console.log('[HA Bridge] Config persisted (' + data.length + ' chars, token excluded)');
     return true;
   } catch (e) {
     console.log('[HA Bridge] Config save FAILED:', e);
@@ -45,17 +71,27 @@ async function saveConfig() {
   }
 }
 
+async function saveToken(token) {
+  haToken = token;
+  try {
+    await PluginAPI.setSecret('haToken', token);
+    console.log('[HA Bridge] Token saved to secret storage');
+  } catch (e) {
+    console.log('[HA Bridge] Token save FAILED:', e);
+  }
+}
+
 // --- HA API ---
 async function haApi(method, path, body = null) {
-  if (!config.haUrl || !config.haToken) return null;
-  const opts = { method, headers: { 'Authorization': `Bearer ${config.haToken}`, 'Content-Type': 'application/json' } };
+  if (!config.haUrl || !haToken) return null;
+  const opts = { method, headers: { 'Authorization': `Bearer ${haToken}`, 'Content-Type': 'application/json' } };
   if (body) opts.body = JSON.stringify(body);
   try { const r = await fetch(`${config.haUrl.replace(/\/$/, '')}/api/${path}`, opts); return r.ok ? await r.json() : null; }
   catch (e) { return null; }
 }
 
 async function executeAction(action, context = {}) {
-  if (!action || !config.haToken) return;
+  if (!action || !haToken) return;
   // Replace template variables in messages
   const msg = (action.message || '')
     .replace('{title}', context.title || '')
@@ -245,10 +281,20 @@ async function onTaskComplete(data) {
   await evaluateRules('task_complete', ctx);
   await notifyWebhook('task_completed', { taskId: ctx.taskId, title: ctx.title, timeSpentMs: data?.task?.timeSpent });
 
-  // Check all done
+  // Check all done - use dueDay/dueWithTime to detect today's tasks (TODAY is a virtual tag, never in tagIds)
   try {
     const tasks = await PluginAPI.getTasks();
-    const todayTasks = tasks.filter(t => (t.tagIds || []).includes('TODAY'));
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    const nowMs = Date.now();
+    const startOfDay = new Date(today).getTime();
+    const endOfDay = startOfDay + 86400000;
+    
+    const todayTasks = tasks.filter(t => {
+      if (t.dueWithTime && t.dueWithTime >= startOfDay && t.dueWithTime < endOfDay) return true;
+      if (t.dueDay === today) return true;
+      return false;
+    });
+    
     if (todayTasks.length > 0 && todayTasks.every(t => t.isDone)) {
       await evaluateRules('all_done', { count: todayTasks.length });
       await notifyWebhook('all_today_done', { count: todayTasks.length });

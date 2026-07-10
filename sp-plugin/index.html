@@ -138,7 +138,8 @@
 </div>
 
 <script>
-let config={haUrl:'',haToken:'',webhookId:'',rules:[],showSensors:''};
+let config={haUrl:'',webhookId:'',rules:[],showSensors:''};
+let haToken=''; // Stored separately via secret API
 let editingRuleIdx=-1, projects=[], tags=[], svcHist=[];
 let haEntities={scenes:[],lights:[],switches:[],scripts:[],automations:[],sensors:[],media_players:[],all:[]};
 
@@ -195,8 +196,23 @@ async function loadConfig(){
 
   if (loaded) {
     console.log('[HA UI] Config loaded! URL:', config.haUrl ? 'SET' : 'empty', 'Rules:', config.rules?.length || 0);
+    // Migration: remove token from synced config if present
+    if (config.haToken) {
+      haToken = config.haToken;
+      delete config.haToken;
+      try { await PluginAPI.setSecret('haToken', haToken); } catch(e) {}
+      try { await PluginAPI.persistDataSynced(JSON.stringify(config)); } catch(e) {}
+    }
   } else {
     console.log('[HA UI] NO CONFIG FOUND via any method');
+  }
+  
+  // Load token from secret storage (never synced)
+  if (!haToken) {
+    try {
+      const secret = await PluginAPI.getSecret('haToken');
+      if (secret) { haToken = secret; console.log('[HA UI] Token loaded from secrets'); }
+    } catch(e) {}
   }
   
   if(!config.rules) config.rules = [];
@@ -204,40 +220,27 @@ async function loadConfig(){
 }
 
 async function saveConfig(){
-  const data = JSON.stringify(config);
-  console.log('[HA UI] Saving (' + data.length + ' chars)...');
-  
-  // Save via ALL available methods
-  let saved = false;
-  try {
-    await PluginAPI.persistDataSynced(data);
-    saved = true;
-    console.log('[HA UI] persistDataSynced(data) OK');
-  } catch(e) { console.log('[HA UI] persistDataSynced(data) failed:', e); }
-  
-  // Also try with key
-  try {
-    await PluginAPI.persistDataSynced(data, 'config');
-    console.log('[HA UI] persistDataSynced(data, "config") OK');
-  } catch(e) {}
-  
-  if (saved) {
-    // Verify
-    try {
-      const v = await PluginAPI.loadSyncedData();
-      console.log('[HA UI] Verify:', v ? v.length + ' chars' : 'EMPTY');
-    } catch(e) {}
+  // SECURITY: never include haToken in synced data
+  const safeConfig = { ...config };
+  delete safeConfig.haToken;
+  const data = JSON.stringify(safeConfig);
+  console.log('[HA UI] Saving config (' + data.length + ' chars, token excluded)...');
+  try { await PluginAPI.persistDataSynced(data); console.log('[HA UI] persistDataSynced OK'); } catch(e) { console.log('[HA UI] Save error:', e); }
+  try { await PluginAPI.persistDataSynced(data, 'config'); } catch(e) {}
+  // Save token to secret storage
+  if (haToken) {
+    try { await PluginAPI.setSecret('haToken', haToken); console.log('[HA UI] Token saved to secrets'); } catch(e) { console.log('[HA UI] setSecret error:', e); }
   }
 }
 function populateSettings(){
 document.getElementById('cfg-url').value=config.haUrl||'';
-document.getElementById('cfg-token').value=config.haToken||'';
+document.getElementById('cfg-token').value=haToken||'';
 document.getElementById('cfg-webhook').value=config.webhookId||'';
 renderSensorList();
 }
 async function saveSettings(){
 config.haUrl=document.getElementById('cfg-url').value.trim().replace(/\/$/,'');
-config.haToken=document.getElementById('cfg-token').value.trim();
+haToken=document.getElementById('cfg-token').value.trim(); // stored via setSecret, not in config
 config.webhookId=document.getElementById('cfg-webhook').value.trim();
 await saveConfig();
 PluginAPI.showSnack({msg:'Settings saved!',type:'SUCCESS'});
@@ -247,8 +250,8 @@ checkConn();loadSensors();populateSensorPicker();
 
 // HA API
 async function haApi(method,path,body=null){
-if(!config.haUrl||!config.haToken)return null;
-const opts={method,headers:{'Authorization':`Bearer ${config.haToken}`,'Content-Type':'application/json'}};
+if(!config.haUrl||!haToken)return null;
+const opts={method,headers:{'Authorization':`Bearer ${haToken}`,'Content-Type':'application/json'}};
 if(body)opts.body=JSON.stringify(body);
 try{const r=await fetch(`${config.haUrl}/api/${path}`,opts);return r.ok?await r.json():null;}catch(e){return null;}}
 
@@ -295,7 +298,7 @@ el.innerHTML=html;}
 
 async function checkConn(){
 const b=document.getElementById('conn-badge'),d=document.getElementById('conn-dot'),t=document.getElementById('conn-text');
-if(!config.haUrl||!config.haToken){b.className='badge err';d.className='dot err';t.textContent='Not set';return false;}
+if(!config.haUrl||!haToken){b.className='badge err';d.className='dot err';t.textContent='Not set';return false;}
 const r=await haApi('GET','config');
 if(r){b.className='badge ok';d.className='dot ok';t.textContent='v'+r.version;return true;}
 b.className='badge err';d.className='dot err';t.textContent='Offline';return false;}

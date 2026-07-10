@@ -1,7 +1,7 @@
 {
   "id": "home-assistant-bridge",
   "name": "Home Assistant Bridge",
-  "version": "4.0.0",
+  "version": "4.2.0",
   "description": "Bidirectional bridge between Super Productivity and Home Assistant. Rules-based automation engine with 20 triggers and 10 action types. Control lights, scenes, media, automations, and notifications based on your task activity.",
   "manifestVersion": 1,
   "minSupVersion": "10.0.0",
