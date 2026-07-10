@@ -9,7 +9,7 @@ let config = {};
 
 async function loadConfig() {
   try {
-    const raw = await PluginAPI.loadSyncedData('config');
+    const raw = await PluginAPI.loadSyncedData();
     if (raw) {
       config = JSON.parse(raw);
     }

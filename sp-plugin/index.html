@@ -261,7 +261,7 @@
     // --- Config ---
     async function loadConfig() {
       try {
-        const raw = await PluginAPI.loadSyncedData('config');
+        const raw = await PluginAPI.loadSyncedData();
         if (raw) config = JSON.parse(raw);
       } catch (e) { config = {}; }
       populateSettings();
@@ -269,7 +269,7 @@
     }
 
     async function saveConfig() {
-      await PluginAPI.persistDataSynced('config', JSON.stringify(config));
+      await PluginAPI.persistDataSynced(JSON.stringify(config));
     }
 
     function populateSettings() {
