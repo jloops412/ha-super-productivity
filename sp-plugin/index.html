@@ -8,160 +8,325 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      padding: 20px;
-      color: var(--primary-text-color, #e0e0e0);
+      padding: 16px;
+      color: #e0e0e0;
       background: transparent;
+      font-size: 14px;
     }
-    .container { max-width: 400px; margin: 0 auto; }
     .header {
       display: flex;
       align-items: center;
-      gap: 12px;
-      margin-bottom: 20px;
+      justify-content: space-between;
+      margin-bottom: 16px;
     }
-    .header h1 { font-size: 1.2em; font-weight: 600; }
-    .status-badge {
+    .header h1 { font-size: 1.1em; font-weight: 600; }
+    .badge {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
-      padding: 4px 10px;
-      border-radius: 12px;
-      font-size: 0.75em;
+      gap: 5px;
+      padding: 3px 8px;
+      border-radius: 10px;
+      font-size: 0.7em;
       font-weight: 500;
     }
-    .status-badge.connected {
-      background: rgba(76, 175, 80, 0.2);
-      color: #66bb6a;
-      border: 1px solid rgba(76, 175, 80, 0.3);
-    }
-    .status-dot {
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      background: #66bb6a;
-      animation: pulse 2s infinite;
-    }
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.4; }
-    }
-    .info-card {
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 12px;
-      padding: 16px;
-      margin-bottom: 12px;
-    }
-    .info-card h3 {
-      font-size: 0.8em;
+    .badge.ok { background: rgba(76,175,80,0.2); color: #66bb6a; border: 1px solid rgba(76,175,80,0.3); }
+    .badge.err { background: rgba(244,67,54,0.2); color: #ef5350; border: 1px solid rgba(244,67,54,0.3); }
+    .dot { width: 6px; height: 6px; border-radius: 50%; }
+    .dot.ok { background: #66bb6a; animation: pulse 2s infinite; }
+    .dot.err { background: #ef5350; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+    .section { margin-bottom: 16px; }
+    .section-title {
+      font-size: 0.7em;
       text-transform: uppercase;
-      letter-spacing: 1px;
-      opacity: 0.6;
+      letter-spacing: 1.5px;
+      opacity: 0.5;
       margin-bottom: 8px;
     }
-    .info-card p { font-size: 0.9em; line-height: 1.5; }
-    .stat-row {
+
+    .card {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 8px;
+    }
+
+    .sensor-row {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 8px 0;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    }
-    .stat-row:last-child { border-bottom: none; }
-    .stat-label { opacity: 0.7; font-size: 0.85em; }
-    .stat-value { font-weight: 600; font-size: 1.1em; }
-    .features {
-      margin-top: 20px;
-      padding: 0;
-      list-style: none;
-    }
-    .features li {
       padding: 6px 0;
-      font-size: 0.85em;
-      opacity: 0.8;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+    .sensor-row:last-child { border-bottom: none; }
+    .sensor-name { opacity: 0.7; font-size: 0.85em; }
+    .sensor-value { font-weight: 600; }
+
+    .btn {
       display: flex;
       align-items: center;
-      gap: 8px;
+      justify-content: center;
+      gap: 6px;
+      width: 100%;
+      padding: 10px;
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 8px;
+      background: rgba(255,255,255,0.05);
+      color: #e0e0e0;
+      font-size: 0.85em;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-bottom: 6px;
     }
-    .features li::before {
-      content: "✓";
+    .btn:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.25); }
+    .btn.focus { border-color: rgba(66,165,245,0.5); color: #42a5f5; }
+    .btn.focus:hover { background: rgba(66,165,245,0.1); }
+    .btn.relax { border-color: rgba(171,71,188,0.5); color: #ab47bc; }
+    .btn.relax:hover { background: rgba(171,71,188,0.1); }
+    .btn.service { border-color: rgba(255,167,38,0.5); color: #ffa726; }
+    .btn.service:hover { background: rgba(255,167,38,0.1); }
+
+    .config-hint {
+      font-size: 0.8em;
+      opacity: 0.5;
+      text-align: center;
+      padding: 20px;
+      font-style: italic;
+    }
+
+    .custom-service {
+      display: flex;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .custom-service input {
+      flex: 1;
+      padding: 8px;
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 6px;
+      background: rgba(0,0,0,0.3);
+      color: #e0e0e0;
+      font-size: 0.85em;
+    }
+    .custom-service button {
+      padding: 8px 12px;
+      border: 1px solid rgba(76,175,80,0.5);
+      border-radius: 6px;
+      background: rgba(76,175,80,0.1);
       color: #66bb6a;
-      font-weight: bold;
+      cursor: pointer;
+      font-size: 0.85em;
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <div class="header">
-      <h1>Home Assistant Bridge</h1>
-      <span class="status-badge connected">
-        <span class="status-dot"></span>
-        Connected
-      </span>
-    </div>
+  <div class="header">
+    <h1>Home Assistant</h1>
+    <span class="badge" id="status-badge">
+      <span class="dot" id="status-dot"></span>
+      <span id="status-text">Checking...</span>
+    </span>
+  </div>
 
-    <div class="info-card">
-      <h3>Connection</h3>
-      <div class="stat-row">
-        <span class="stat-label">API Port</span>
-        <span class="stat-value">3876</span>
-      </div>
-      <div class="stat-row">
-        <span class="stat-label">Poll Interval</span>
-        <span class="stat-value">30s</span>
-      </div>
-      <div class="stat-row">
-        <span class="stat-label">Status</span>
-        <span class="stat-value" id="api-status">Active</span>
-      </div>
+  <div id="not-configured" style="display:none;">
+    <div class="config-hint">
+      Configure your HA URL and Access Token in the plugin settings to get started.
+      <br><br>
+      Plugin Settings > Home Assistant Bridge > Configure
     </div>
+  </div>
 
-    <div class="info-card">
-      <h3>What HA Can See</h3>
-      <div class="stat-row">
-        <span class="stat-label">Active Tasks</span>
-        <span class="stat-value" id="task-count">--</span>
-      </div>
-      <div class="stat-row">
-        <span class="stat-label">Projects</span>
-        <span class="stat-value" id="project-count">--</span>
-      </div>
-      <div class="stat-row">
-        <span class="stat-label">Tags</span>
-        <span class="stat-value" id="tag-count">--</span>
+  <div id="main-content" style="display:none;">
+    <!-- Scenes / Controls -->
+    <div class="section">
+      <div class="section-title">Controls</div>
+      <button class="btn focus" onclick="activateScene('focus')">
+        <span>💡</span> Focus Mode
+      </button>
+      <button class="btn relax" onclick="activateScene('relax')">
+        <span>🧘</span> Relax Mode
+      </button>
+      <div class="custom-service">
+        <input type="text" id="service-input" placeholder="light.turn_on / entity_id">
+        <button onclick="callCustomService()">Run</button>
       </div>
     </div>
 
-    <div class="info-card">
-      <h3>HA Capabilities</h3>
-      <ul class="features">
-        <li>View and manage tasks from HA dashboard</li>
-        <li>Start/stop time tracking remotely</li>
-        <li>Create tasks via voice or automations</li>
-        <li>Focus lighting when tracking</li>
-        <li>Break reminders and daily summaries</li>
-        <li>Complete and archive tasks from HA</li>
-      </ul>
+    <!-- Sensors -->
+    <div class="section" id="sensors-section" style="display:none;">
+      <div class="section-title">Sensors</div>
+      <div class="card" id="sensors-container"></div>
+    </div>
+
+    <!-- SP Status pushed to HA -->
+    <div class="section">
+      <div class="section-title">SP → HA Status</div>
+      <div class="card">
+        <div class="sensor-row">
+          <span class="sensor-name">Webhook</span>
+          <span class="sensor-value" id="webhook-status">--</span>
+        </div>
+        <div class="sensor-row">
+          <span class="sensor-name">Last Push</span>
+          <span class="sensor-value" id="last-push">Never</span>
+        </div>
+        <div class="sensor-row">
+          <span class="sensor-name">Auto-Scene</span>
+          <span class="sensor-value" id="auto-scene-status">--</span>
+        </div>
+      </div>
     </div>
   </div>
 
   <script>
-    async function updateStats() {
-      try {
-        const tasks = await PluginAPI.getTasks();
-        const projects = await PluginAPI.getAllProjects();
-        const tags = await PluginAPI.getAllTags();
+    let config = {};
 
-        document.getElementById('task-count').textContent = tasks.length;
-        document.getElementById('project-count').textContent = projects.length;
-        document.getElementById('tag-count').textContent = tags.length;
+    async function loadConfig() {
+      try {
+        config = (await PluginAPI.getConfig()) || {};
       } catch (e) {
-        console.error('[HA Bridge] Error fetching stats:', e);
+        config = {};
       }
     }
 
-    // Update on load and periodically
-    updateStats();
-    setInterval(updateStats, 30000);
+    async function haApi(method, path, body = null) {
+      if (!config.haUrl || !config.haToken) return null;
+      const url = `${config.haUrl.replace(/\/$/, '')}/api/${path}`;
+      const options = {
+        method,
+        headers: {
+          'Authorization': `Bearer ${config.haToken}`,
+          'Content-Type': 'application/json',
+        },
+      };
+      if (body) options.body = JSON.stringify(body);
+      try {
+        const resp = await fetch(url, options);
+        if (resp.ok) return await resp.json();
+        return null;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    async function checkConnection() {
+      const badge = document.getElementById('status-badge');
+      const dot = document.getElementById('status-dot');
+      const text = document.getElementById('status-text');
+
+      if (!config.haUrl || !config.haToken) {
+        badge.className = 'badge err';
+        dot.className = 'dot err';
+        text.textContent = 'Not configured';
+        document.getElementById('not-configured').style.display = 'block';
+        document.getElementById('main-content').style.display = 'none';
+        return false;
+      }
+
+      const result = await haApi('GET', 'config');
+      if (result) {
+        badge.className = 'badge ok';
+        dot.className = 'dot ok';
+        text.textContent = `v${result.version}`;
+        document.getElementById('not-configured').style.display = 'none';
+        document.getElementById('main-content').style.display = 'block';
+        return true;
+      } else {
+        badge.className = 'badge err';
+        dot.className = 'dot err';
+        text.textContent = 'Offline';
+        document.getElementById('not-configured').style.display = 'none';
+        document.getElementById('main-content').style.display = 'block';
+        return false;
+      }
+    }
+
+    async function activateScene(type) {
+      const scene = type === 'focus' ? config.focusScene : config.relaxScene;
+      if (!scene) {
+        PluginAPI.showSnack({ msg: `No ${type} scene configured in plugin settings`, type: 'WARN' });
+        return;
+      }
+      const result = await haApi('POST', 'services/scene/turn_on', { entity_id: scene });
+      if (result !== null) {
+        PluginAPI.showSnack({ msg: `${type === 'focus' ? 'Focus' : 'Relax'} scene activated!`, type: 'SUCCESS' });
+      } else {
+        PluginAPI.showSnack({ msg: 'Failed to activate scene', type: 'ERROR' });
+      }
+    }
+
+    async function callCustomService() {
+      const input = document.getElementById('service-input').value.trim();
+      if (!input) return;
+
+      // Parse "domain.service / entity_id" format
+      const parts = input.split('/').map(s => s.trim());
+      const [domainService, entityId] = parts;
+      const [domain, service] = domainService.split('.');
+
+      if (!domain || !service) {
+        PluginAPI.showSnack({ msg: 'Format: domain.service / entity_id', type: 'WARN' });
+        return;
+      }
+
+      const data = entityId ? { entity_id: entityId } : {};
+      const result = await haApi('POST', `services/${domain}/${service}`, data);
+      if (result !== null) {
+        PluginAPI.showSnack({ msg: `Called ${domain}.${service}`, type: 'SUCCESS' });
+      } else {
+        PluginAPI.showSnack({ msg: 'Service call failed', type: 'ERROR' });
+      }
+    }
+
+    async function loadSensors() {
+      if (!config.showSensors) return;
+
+      const sensorIds = config.showSensors.split(',').map(s => s.trim()).filter(Boolean);
+      if (sensorIds.length === 0) return;
+
+      document.getElementById('sensors-section').style.display = 'block';
+      const container = document.getElementById('sensors-container');
+      container.innerHTML = '';
+
+      for (const entityId of sensorIds) {
+        const state = await haApi('GET', `states/${entityId}`);
+        const row = document.createElement('div');
+        row.className = 'sensor-row';
+        if (state) {
+          const name = state.attributes.friendly_name || entityId;
+          const value = state.state + (state.attributes.unit_of_measurement ? ` ${state.attributes.unit_of_measurement}` : '');
+          row.innerHTML = `<span class="sensor-name">${name}</span><span class="sensor-value">${value}</span>`;
+        } else {
+          row.innerHTML = `<span class="sensor-name">${entityId}</span><span class="sensor-value">unavailable</span>`;
+        }
+        container.appendChild(row);
+      }
+    }
+
+    function updateStatus() {
+      document.getElementById('webhook-status').textContent = config.webhookId ? 'Active' : 'Not set';
+      document.getElementById('auto-scene-status').textContent =
+        (config.focusScene || config.relaxScene) ? 'Enabled' : 'Disabled';
+    }
+
+    // Init
+    async function init() {
+      await loadConfig();
+      const connected = await checkConnection();
+      if (connected) {
+        await loadSensors();
+        updateStatus();
+      }
+    }
+
+    init();
+    // Refresh sensors every 30s
+    setInterval(async () => {
+      await loadConfig();
+      await loadSensors();
+    }, 30000);
   </script>
 </body>
 </html>

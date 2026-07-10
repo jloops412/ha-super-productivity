@@ -1,8 +1,8 @@
 {
   "id": "home-assistant-bridge",
   "name": "Home Assistant Bridge",
-  "version": "1.0.0",
-  "description": "Bridges Super Productivity with Home Assistant. Enables smart home automations based on your task tracking — focus lighting, break reminders, daily summaries, and voice-controlled task creation.",
+  "version": "2.0.0",
+  "description": "Full bidirectional bridge between Super Productivity and Home Assistant. Control your smart home from SP (focus lighting, scenes, devices), view HA sensor data in the side panel, and push instant task updates to HA automations.",
   "manifestVersion": 1,
   "minSupVersion": "10.0.0",
   "author": "jloops412",
@@ -12,5 +12,45 @@
   "sidePanel": true,
   "permissions": [],
   "hooks": ["taskComplete", "currentTaskChange", "finishDay"],
-  "type": "extension"
+  "type": "extension",
+  "jsonSchemaCfg": {
+    "type": "object",
+    "properties": {
+      "haUrl": {
+        "type": "string",
+        "title": "Home Assistant URL",
+        "description": "Your HA instance URL (e.g., http://homeassistant.local:8123)",
+        "default": "http://homeassistant.local:8123"
+      },
+      "haToken": {
+        "type": "string",
+        "title": "Long-Lived Access Token",
+        "description": "Create at: HA Profile > Long-Lived Access Tokens"
+      },
+      "webhookId": {
+        "type": "string",
+        "title": "Webhook ID (optional)",
+        "description": "For instant updates. Find in HA logs after loading SP integration."
+      },
+      "focusScene": {
+        "type": "string",
+        "title": "Focus Scene (optional)",
+        "description": "HA scene to activate when tracking starts (e.g., scene.focus_mode)",
+        "default": ""
+      },
+      "relaxScene": {
+        "type": "string",
+        "title": "Relax Scene (optional)",
+        "description": "HA scene to activate when tracking stops (e.g., scene.relax)",
+        "default": ""
+      },
+      "showSensors": {
+        "type": "string",
+        "title": "Sensors to display (comma-separated)",
+        "description": "HA entity IDs to show in side panel (e.g., sensor.temperature,sensor.humidity)",
+        "default": ""
+      }
+    },
+    "required": ["haUrl", "haToken"]
+  }
 }
