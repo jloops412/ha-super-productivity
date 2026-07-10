@@ -435,7 +435,27 @@ PluginAPI.showSnack({msg:r!==null?`${svc} OK`:'Failed',type:r!==null?'SUCCESS':'
 
 // Init
 async function init(){await loadConfig();const connected=await checkConn();if(connected)await fetchHAEntities();await loadProjectsAndTags();renderRules();if(connected)loadSensors();}
-init();
+
+// Wait for PluginAPI to be injected by SP before initializing
+function waitForPluginAPI() {
+  if (typeof PluginAPI !== 'undefined') {
+    init();
+  } else {
+    // PluginAPI not yet injected - wait and retry
+    let attempts = 0;
+    const interval = setInterval(() => {
+      attempts++;
+      if (typeof PluginAPI !== 'undefined') {
+        clearInterval(interval);
+        init();
+      } else if (attempts > 50) {
+        clearInterval(interval);
+        console.log('[HA UI] PluginAPI never became available after 5s');
+      }
+    }, 100);
+  }
+}
+waitForPluginAPI();
 setInterval(()=>{if(config.haUrl&&config.haToken)loadSensors();},60000);
 </script>
 </body>
