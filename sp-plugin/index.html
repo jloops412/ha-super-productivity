@@ -154,93 +154,58 @@ if(tab.dataset.page==='sensors')loadSensors();
 
 function showPage(name){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById('page-'+name).classList.add('active');if(name==='rules'){document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));document.querySelector('[data-page=rules]').classList.add('active');}}
 
-// Config - persist via PluginAPI from iframe
-// SP scopes persistDataSynced per-plugin, not per-iframe-instance.
-// The data should persist across iframe reloads.
+// Config & API - all handled via window.parent.haBridge (plugin.js)
+// This ensures secrets stay in plugin.js and config persists across iframe reloads.
+let bridge = null;
+
+function getBridge() {
+  if (bridge) return bridge;
+  if (window.parent && window.parent.haBridge) { bridge = window.parent.haBridge; return bridge; }
+  return null;
+}
+
 async function loadConfig(){
-  let loaded = false;
+  const b = getBridge();
+  if (!b) { console.log('[HA UI] Bridge not available yet'); return; }
   
-  // Method 1: loadSyncedData with no args
-  try {
-    const raw = await PluginAPI.loadSyncedData();
-    console.log('[HA UI] loadSyncedData() =>', typeof raw, raw ? (raw.length + ' chars') : 'EMPTY');
-    if (raw && raw.length > 2) {
-      config = JSON.parse(raw);
-      loaded = true;
-    }
-  } catch(e) { console.log('[HA UI] loadSyncedData() error:', e); }
+  // Wait for plugin.js to finish loading config
+  let attempts = 0;
+  while (!b.isReady() && attempts < 30) { await new Promise(r => setTimeout(r, 100)); attempts++; }
   
-  // Method 2: try with key 'config' 
-  if (!loaded) {
-    try {
-      const raw2 = await PluginAPI.loadSyncedData('config');
-      console.log('[HA UI] loadSyncedData("config") =>', typeof raw2, raw2 ? (raw2.length + ' chars') : 'EMPTY');
-      if (raw2 && raw2.length > 2) {
-        config = JSON.parse(raw2);
-        loaded = true;
-      }
-    } catch(e) {}
-  }
-
-  // Method 3: try getConfig() which reads manifest jsonSchemaCfg data
-  if (!loaded) {
-    try {
-      const cfg = await PluginAPI.getConfig();
-      console.log('[HA UI] getConfig() =>', typeof cfg, cfg ? JSON.stringify(cfg).length + ' chars' : 'EMPTY');
-      if (cfg && cfg.haUrl) {
-        config = { ...config, ...cfg };
-        loaded = true;
-      }
-    } catch(e) {}
-  }
-
-  if (loaded) {
-    console.log('[HA UI] Config loaded! URL:', config.haUrl ? 'SET' : 'empty', 'Rules:', config.rules?.length || 0);
-    // Migration: remove token from synced config if present
-    if (config.haToken) {
-      haToken = config.haToken;
-      delete config.haToken;
-      try { await PluginAPI.setSecret('haToken', haToken); } catch(e) {}
-      try { await PluginAPI.persistDataSynced(JSON.stringify(config)); } catch(e) {}
-    }
-  } else {
-    console.log('[HA UI] NO CONFIG FOUND via any method');
-  }
-  
-  // Load token from secret storage (never synced)
-  if (!haToken) {
-    try {
-      const secret = await PluginAPI.getSecret('haToken');
-      if (secret) { haToken = secret; console.log('[HA UI] Token loaded from secrets'); }
-    } catch(e) {}
-  }
-  
-  if(!config.rules) config.rules = [];
+  const cfg = b.getConfig();
+  config.haUrl = cfg.haUrl || '';
+  config.webhookId = cfg.webhookId || '';
+  config.rules = cfg.rules || [];
+  config.showSensors = cfg.showSensors || '';
+  haToken = b.getTokenMasked(); // only get masked version for display
+  console.log('[HA UI] Config from bridge:', config.rules.length, 'rules, URL:', config.haUrl ? 'set' : 'empty');
   populateSettings();
 }
 
 async function saveConfig(){
-  // SECURITY: never include haToken in synced data
-  const safeConfig = { ...config };
-  delete safeConfig.haToken;
-  const data = JSON.stringify(safeConfig);
-  console.log('[HA UI] Saving config (' + data.length + ' chars, token excluded)...');
-  try { await PluginAPI.persistDataSynced(data); console.log('[HA UI] persistDataSynced OK'); } catch(e) { console.log('[HA UI] Save error:', e); }
-  try { await PluginAPI.persistDataSynced(data, 'config'); } catch(e) {}
-  // Save token to secret storage
-  if (haToken) {
-    try { await PluginAPI.setSecret('haToken', haToken); console.log('[HA UI] Token saved to secrets'); } catch(e) { console.log('[HA UI] setSecret error:', e); }
-  }
+  const b = getBridge();
+  if (!b) { console.log('[HA UI] No bridge'); return; }
+  const tokenInput = document.getElementById('cfg-token').value.trim();
+  await b.saveSettings({
+    haUrl: config.haUrl,
+    webhookId: config.webhookId,
+    showSensors: config.showSensors,
+    token: tokenInput || undefined, // only send if user entered/changed it
+  });
+  // Save rules separately
+  await b.saveRules(config.rules);
+  console.log('[HA UI] Saved via bridge');
 }
+
 function populateSettings(){
 document.getElementById('cfg-url').value=config.haUrl||'';
-document.getElementById('cfg-token').value=haToken||'';
+document.getElementById('cfg-token').value=''; // never pre-fill token for security
+document.getElementById('cfg-token').placeholder=haToken?'Token saved (enter new to change)':'Enter token...';
 document.getElementById('cfg-webhook').value=config.webhookId||'';
 renderSensorList();
 }
 async function saveSettings(){
 config.haUrl=document.getElementById('cfg-url').value.trim().replace(/\/$/,'');
-haToken=document.getElementById('cfg-token').value.trim(); // stored via setSecret, not in config
 config.webhookId=document.getElementById('cfg-webhook').value.trim();
 await saveConfig();
 PluginAPI.showSnack({msg:'Settings saved!',type:'SUCCESS'});
@@ -248,16 +213,19 @@ await fetchHAEntities();
 checkConn();loadSensors();populateSensorPicker();
 }
 
-// HA API
+// HA API - proxied through plugin.js bridge
 async function haApi(method,path,body=null){
-if(!config.haUrl||!haToken)return null;
-const opts={method,headers:{'Authorization':`Bearer ${haToken}`,'Content-Type':'application/json'}};
-if(body)opts.body=JSON.stringify(body);
-try{const r=await fetch(`${config.haUrl}/api/${path}`,opts);return r.ok?await r.json():null;}catch(e){return null;}}
+  const b = getBridge();
+  if (!b) return null;
+  return await b.callHaApi(method, path, body);
+}
 
 async function fetchHAEntities(){
-if(!config.haUrl||!config.haToken)return;
-const states=await haApi('GET','states');
+const b = getBridge();
+if(!b)return;
+const entities = await b.fetchEntities();
+if(!entities)return;
+const states = null;
 if(!states||!Array.isArray(states))return;
 haEntities.all=states;
 haEntities.scenes=states.filter(s=>s.entity_id.startsWith('scene.'));
@@ -297,12 +265,13 @@ entities.forEach(e=>{const sel=e.entity_id===currentValue?' selected':'';html+='
 el.innerHTML=html;}
 
 async function checkConn(){
-const b=document.getElementById('conn-badge'),d=document.getElementById('conn-dot'),t=document.getElementById('conn-text');
-if(!config.haUrl||!haToken){b.className='badge err';d.className='dot err';t.textContent='Not set';return false;}
-const r=await haApi('GET','config');
-if(r){b.className='badge ok';d.className='dot ok';t.textContent='v'+r.version;return true;}
-b.className='badge err';d.className='dot err';t.textContent='Offline';return false;}
-async function testConn(){const ok=await checkConn();if(ok){const r=await haApi('GET','config');PluginAPI.showSnack({msg:`Connected: HA ${r.version}`,type:'SUCCESS'});}else PluginAPI.showSnack({msg:'Cannot reach HA - check URL and token',type:'ERROR'});}
+const badge=document.getElementById('conn-badge'),dot=document.getElementById('conn-dot'),txt=document.getElementById('conn-text');
+const b = getBridge();
+if(!b||!config.haUrl){badge.className='badge err';dot.className='dot err';txt.textContent='Not set';return false;}
+const r=await b.testConnection();
+if(r&&r.ok){badge.className='badge ok';dot.className='dot ok';txt.textContent='v'+r.version;return true;}
+badge.className='badge err';dot.className='dot err';txt.textContent='Offline';return false;}
+async function testConn(){const ok=await checkConn();if(ok){const b=getBridge();const r=await b.testConnection();PluginAPI.showSnack({msg:'Connected: HA '+r.version,type:'SUCCESS'});}else PluginAPI.showSnack({msg:'Cannot reach HA',type:'ERROR'});}
 
 // Sensors
 function populateSensorPicker(){
@@ -333,10 +302,12 @@ c.innerHTML=sensors.map(s=>'<div class="row"><span style="font-size:.85em">'+s+'
 async function loadSensors(){
 const grid=document.getElementById('sensor-grid'),ns=document.getElementById('no-sensors');
 const ids=(config.showSensors||'').split(',').map(s=>s.trim()).filter(Boolean);
-if(!ids.length||!config.haUrl||!config.haToken){grid.innerHTML='';ns.style.display='block';return;}
+const b=getBridge();
+if(!ids.length||!b||!config.haUrl){grid.innerHTML='';ns.style.display='block';return;}
 ns.style.display='none';grid.innerHTML='';
-for(const id of ids){
-const st=await haApi('GET',`states/${id}`);
+const states=await b.getSensorStates(ids);
+for(let i=0;i<ids.length;i++){
+const id=ids[i];const st=states[i];
 const c=document.createElement('div');c.className='sensor-card';
 if(st){const nm=st.attributes?.friendly_name||id.split('.').pop().replace(/_/g,' ');const v=st.state+(st.attributes?.unit_of_measurement?' '+st.attributes.unit_of_measurement:'');c.innerHTML='<div class="label">'+nm+'</div><div class="value">'+v+'</div>';}
 else c.innerHTML='<div class="label">'+id+'</div><div class="value">--</div>';
@@ -439,26 +410,25 @@ PluginAPI.showSnack({msg:r!==null?`${svc} OK`:'Failed',type:r!==null?'SUCCESS':'
 // Init
 async function init(){await loadConfig();const connected=await checkConn();if(connected)await fetchHAEntities();await loadProjectsAndTags();renderRules();if(connected)loadSensors();}
 
-// Wait for PluginAPI to be injected by SP before initializing
-function waitForPluginAPI() {
-  if (typeof PluginAPI !== 'undefined') {
-    init();
-  } else {
-    // PluginAPI not yet injected - wait and retry
-    let attempts = 0;
-    const interval = setInterval(() => {
-      attempts++;
-      if (typeof PluginAPI !== 'undefined') {
-        clearInterval(interval);
-        init();
-      } else if (attempts > 50) {
-        clearInterval(interval);
-        console.log('[HA UI] PluginAPI never became available after 5s');
-      }
-    }, 100);
-  }
+// Wait for both PluginAPI (for SP features) and haBridge (for config/HA API)
+function waitForReady() {
+  let attempts = 0;
+  const interval = setInterval(() => {
+    attempts++;
+    const hasApi = typeof PluginAPI !== 'undefined';
+    const hasBridge = window.parent && window.parent.haBridge;
+    if (hasApi && hasBridge) {
+      clearInterval(interval);
+      init();
+    } else if (attempts > 50) {
+      clearInterval(interval);
+      // Try init anyway with whatever is available
+      console.log('[HA UI] Timeout waiting for APIs, attempting init');
+      init();
+    }
+  }, 100);
 }
-waitForPluginAPI();
+waitForReady();
 setInterval(()=>{if(config.haUrl&&config.haToken)loadSensors();},60000);
 </script>
 </body>
