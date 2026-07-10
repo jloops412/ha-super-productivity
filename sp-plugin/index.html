@@ -3,252 +3,139 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Home Assistant Bridge</title>
+  <title>HA Bridge</title>
   <style>
-    :root {
-      --bg-primary: #1e1e2e;
-      --bg-card: rgba(255,255,255,0.04);
-      --bg-card-hover: rgba(255,255,255,0.08);
-      --border: rgba(255,255,255,0.08);
-      --text: #e0e0e0;
-      --text-dim: rgba(255,255,255,0.5);
-      --accent: #42a5f5;
-      --success: #66bb6a;
-      --warn: #ffa726;
-      --error: #ef5350;
-      --radius: 10px;
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      color: var(--text);
-      background: transparent;
-      font-size: 13px;
-      line-height: 1.5;
-    }
-
-    /* Navigation tabs */
-    .tabs {
-      display: flex;
-      border-bottom: 1px solid var(--border);
-      position: sticky;
-      top: 0;
-      background: var(--bg-primary);
-      z-index: 10;
-    }
-    .tab {
-      flex: 1;
-      padding: 10px 8px;
-      text-align: center;
-      font-size: 0.8em;
-      font-weight: 500;
-      opacity: 0.5;
-      cursor: pointer;
-      border-bottom: 2px solid transparent;
-      transition: all 0.2s;
-    }
-    .tab:hover { opacity: 0.8; }
-    .tab.active { opacity: 1; border-bottom-color: var(--accent); color: var(--accent); }
-
-    /* Pages */
-    .page { display: none; padding: 16px; }
-    .page.active { display: block; }
-
-    /* Cards */
-    .card {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 14px;
-      margin-bottom: 10px;
-    }
-    .card-title {
-      font-size: 0.7em;
-      text-transform: uppercase;
-      letter-spacing: 1.5px;
-      opacity: 0.4;
-      margin-bottom: 10px;
-    }
-
-    /* Rows */
-    .row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; }
-    .row + .row { border-top: 1px solid rgba(255,255,255,0.03); }
-    .row-label { opacity: 0.7; font-size: 0.9em; }
-    .row-value { font-weight: 600; }
-
-    /* Buttons */
-    .btn {
-      display: flex; align-items: center; justify-content: center; gap: 6px;
-      width: 100%; padding: 10px; border-radius: 8px;
-      border: 1px solid var(--border); background: var(--bg-card);
-      color: var(--text); font-size: 0.85em; cursor: pointer;
-      transition: all 0.15s; margin-bottom: 6px;
-    }
-    .btn:hover { background: var(--bg-card-hover); }
-    .btn.accent { border-color: rgba(66,165,245,0.4); color: var(--accent); }
-    .btn.accent:hover { background: rgba(66,165,245,0.1); }
-    .btn.success { border-color: rgba(102,187,106,0.4); color: var(--success); }
-    .btn.success:hover { background: rgba(102,187,106,0.1); }
-    .btn.warn { border-color: rgba(255,167,38,0.4); color: var(--warn); }
-    .btn.warn:hover { background: rgba(255,167,38,0.1); }
-
-    /* Form inputs */
-    .field { margin-bottom: 12px; }
-    .field label { display: block; font-size: 0.8em; opacity: 0.6; margin-bottom: 4px; }
-    .field input, .field select {
-      width: 100%; padding: 8px 10px; border-radius: 6px;
-      border: 1px solid var(--border); background: rgba(0,0,0,0.3);
-      color: var(--text); font-size: 0.9em;
-    }
-    .field input:focus { outline: none; border-color: var(--accent); }
-    .field .hint { font-size: 0.75em; opacity: 0.4; margin-top: 3px; }
-
-    /* Status badge */
-    .badge {
-      display: inline-flex; align-items: center; gap: 5px;
-      padding: 3px 8px; border-radius: 10px; font-size: 0.75em; font-weight: 500;
-    }
-    .badge.ok { background: rgba(76,175,80,0.15); color: var(--success); }
-    .badge.err { background: rgba(244,67,54,0.15); color: var(--error); }
-    .dot { width: 6px; height: 6px; border-radius: 50%; }
-    .dot.ok { background: var(--success); animation: pulse 2s infinite; }
-    .dot.err { background: var(--error); }
-    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
-
-    /* Service caller */
-    .service-row { display: flex; gap: 6px; }
-    .service-row input { flex: 1; }
-    .service-row button {
-      padding: 8px 14px; border-radius: 6px; border: 1px solid rgba(102,187,106,0.4);
-      background: rgba(102,187,106,0.1); color: var(--success); cursor: pointer; font-size: 0.85em;
-    }
-
-    /* Sensor grid */
-    .sensor-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-    .sensor-card {
-      background: var(--bg-card); border: 1px solid var(--border);
-      border-radius: 8px; padding: 10px; text-align: center;
-    }
-    .sensor-card .value { font-size: 1.4em; font-weight: 700; margin: 4px 0; }
-    .sensor-card .label { font-size: 0.7em; opacity: 0.5; }
-
-    .header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; }
-    .header h1 { font-size: 1em; font-weight: 600; }
+    :root { --bg:#1e1e2e; --card:rgba(255,255,255,0.04); --border:rgba(255,255,255,0.08); --text:#e0e0e0; --dim:rgba(255,255,255,0.45); --accent:#42a5f5; --success:#66bb6a; --warn:#ffa726; --err:#ef5350; --r:10px; }
+    *{box-sizing:border-box;margin:0;padding:0} body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:var(--text);background:transparent;font-size:13px;line-height:1.5}
+    .tabs{display:flex;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg);z-index:10}
+    .tab{flex:1;padding:10px 4px;text-align:center;font-size:0.75em;font-weight:500;opacity:0.5;cursor:pointer;border-bottom:2px solid transparent;transition:all 0.2s}
+    .tab:hover{opacity:0.8} .tab.active{opacity:1;border-bottom-color:var(--accent);color:var(--accent)}
+    .page{display:none;padding:14px} .page.active{display:block}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:12px;margin-bottom:10px}
+    .card-title{font-size:0.7em;text-transform:uppercase;letter-spacing:1.5px;opacity:0.4;margin-bottom:8px}
+    .row{display:flex;justify-content:space-between;align-items:center;padding:5px 0}
+    .row+.row{border-top:1px solid rgba(255,255,255,0.03)}
+    .btn{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:9px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:0.82em;cursor:pointer;transition:all 0.15s;margin-bottom:5px}
+    .btn:hover{background:rgba(255,255,255,0.08)} .btn.accent{border-color:rgba(66,165,245,0.4);color:var(--accent)} .btn.success{border-color:rgba(102,187,106,0.4);color:var(--success)} .btn.warn{border-color:rgba(255,167,38,0.4);color:var(--warn)} .btn.err{border-color:rgba(239,83,80,0.4);color:var(--err)} .btn.sm{width:auto;padding:5px 10px;font-size:0.75em}
+    .field{margin-bottom:10px} .field label{display:block;font-size:0.78em;opacity:0.6;margin-bottom:3px}
+    .field input,.field select{width:100%;padding:7px 9px;border-radius:6px;border:1px solid var(--border);background:rgba(0,0,0,0.3);color:var(--text);font-size:0.88em}
+    .field input:focus,.field select:focus{outline:none;border-color:var(--accent)}
+    .field .hint{font-size:0.72em;opacity:0.35;margin-top:2px}
+    .badge{display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:8px;font-size:0.72em;font-weight:500}
+    .badge.ok{background:rgba(76,175,80,0.15);color:var(--success)} .badge.err{background:rgba(244,67,54,0.15);color:var(--err)}
+    .dot{width:6px;height:6px;border-radius:50%} .dot.ok{background:var(--success);animation:pulse 2s infinite} .dot.err{background:var(--err)}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+    .header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px}
+    .header h1{font-size:1em;font-weight:600}
+    .rule-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:10px;margin-bottom:8px;position:relative}
+    .rule-card .rule-name{font-weight:600;font-size:0.9em} .rule-card .rule-desc{font-size:0.78em;opacity:0.5;margin-top:2px}
+    .rule-card .rule-actions{display:flex;gap:4px;margin-top:6px}
+    .toggle{width:36px;height:20px;border-radius:10px;background:rgba(255,255,255,0.1);position:relative;cursor:pointer;border:1px solid var(--border)}
+    .toggle.on{background:rgba(102,187,106,0.3);border-color:rgba(102,187,106,0.5)}
+    .toggle::after{content:'';position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--text);transition:0.2s}
+    .toggle.on::after{left:18px}
+    .sensor-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .sensor-card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center}
+    .sensor-card .value{font-size:1.3em;font-weight:700;margin:3px 0} .sensor-card .label{font-size:0.7em;opacity:0.5}
   </style>
 </head>
 <body>
   <div class="header">
-    <h1>Home Assistant</h1>
+    <h1>HA Bridge</h1>
     <span class="badge" id="conn-badge"><span class="dot" id="conn-dot"></span><span id="conn-text">...</span></span>
   </div>
-
   <div class="tabs">
-    <div class="tab active" data-page="control">Control</div>
+    <div class="tab active" data-page="rules">Rules</div>
     <div class="tab" data-page="sensors">Sensors</div>
     <div class="tab" data-page="services">Services</div>
     <div class="tab" data-page="settings">Settings</div>
   </div>
 
-  <!-- CONTROL PAGE -->
-  <div class="page active" id="page-control">
+  <!-- RULES PAGE -->
+  <div class="page active" id="page-rules">
+    <div id="rules-list"></div>
+    <button class="btn accent" onclick="addRule()">+ Add Rule</button>
+  </div>
+
+  <!-- RULE EDITOR (hidden by default) -->
+  <div class="page" id="page-editor">
     <div class="card">
-      <div class="card-title">Scenes</div>
-      <button class="btn accent" onclick="doScene('focus')">💡 Focus Mode</button>
-      <button class="btn warn" onclick="doScene('relax')">🧘 Relax Mode</button>
+      <div class="card-title">Edit Rule</div>
+      <div class="field"><label>Rule Name</label><input id="re-name" placeholder="Focus mode on start"></div>
+      <div class="field"><label>Trigger</label>
+        <select id="re-trigger">
+          <option value="task_start">Task Started (tracking begins)</option>
+          <option value="task_stop">Task Stopped (tracking ends)</option>
+          <option value="task_complete">Task Completed</option>
+          <option value="all_done">All Today's Tasks Done</option>
+          <option value="timer">Timer (after X minutes of tracking)</option>
+          <option value="day_end">Day Finished</option>
+        </select>
+      </div>
+      <div class="field" id="re-timer-field" style="display:none"><label>After (minutes)</label><input id="re-minutes" type="number" placeholder="25"></div>
+      <div class="card-title" style="margin-top:12px">Conditions (optional)</div>
+      <div class="field"><label>Only for Project</label><select id="re-project"><option value="">Any project</option></select></div>
+      <div class="field"><label>Only for Tag</label><select id="re-tag"><option value="">Any tag</option></select></div>
+      <div class="field"><label>Title Contains</label><input id="re-title" placeholder=""></div>
+      <div class="card-title" style="margin-top:12px">Action</div>
+      <div class="field"><label>Action Type</label>
+        <select id="re-action-type" onchange="toggleActionFields()">
+          <option value="scene">Activate Scene</option>
+          <option value="service">Call Service</option>
+          <option value="notify">Send Notification</option>
+        </select>
+      </div>
+      <div class="field" id="re-scene-field"><label>Scene Entity ID</label><input id="re-scene" placeholder="scene.focus_mode"></div>
+      <div class="field" id="re-service-field" style="display:none"><label>Service</label><input id="re-service" placeholder="light.turn_on"></div>
+      <div class="field" id="re-entity-field" style="display:none"><label>Entity ID</label><input id="re-entity" placeholder="light.desk_lamp"></div>
+      <div class="field" id="re-notify-field" style="display:none"><label>Message</label><input id="re-message" placeholder="Time for a break!"></div>
     </div>
-    <div class="card">
-      <div class="card-title">Quick Actions</div>
-      <button class="btn success" onclick="doService('light.toggle','')">💡 Toggle Lights</button>
-      <button class="btn" onclick="doService('script.turn_on','')">▶️ Run Script</button>
-    </div>
-    <div class="card">
-      <div class="card-title">Sync Status</div>
-      <div class="row"><span class="row-label">Webhook</span><span class="row-value" id="wh-status">--</span></div>
-      <div class="row"><span class="row-label">Auto-Scene</span><span class="row-value" id="as-status">--</span></div>
-      <div class="row"><span class="row-label">Last Event</span><span class="row-value" id="last-event">--</span></div>
-    </div>
+    <button class="btn success" onclick="saveRule()">Save Rule</button>
+    <button class="btn" onclick="cancelEdit()">Cancel</button>
   </div>
 
   <!-- SENSORS PAGE -->
   <div class="page" id="page-sensors">
     <div id="sensor-grid" class="sensor-grid"></div>
-    <p id="no-sensors" style="text-align:center;opacity:0.4;padding:30px;">
-      Configure sensors in Settings tab
-    </p>
+    <p id="no-sensors" style="text-align:center;opacity:0.4;padding:20px;font-size:0.85em">Configure sensors in Settings</p>
   </div>
 
   <!-- SERVICES PAGE -->
   <div class="page" id="page-services">
     <div class="card">
       <div class="card-title">Call HA Service</div>
-      <div class="field">
-        <label>Service (domain.action)</label>
-        <input id="svc-service" placeholder="light.turn_on">
-      </div>
-      <div class="field">
-        <label>Entity ID (optional)</label>
-        <input id="svc-entity" placeholder="light.office_lamp">
-      </div>
-      <div class="field">
-        <label>Extra data (JSON, optional)</label>
-        <input id="svc-data" placeholder='{"brightness": 200}'>
-      </div>
+      <div class="field"><label>Service</label><input id="svc-service" placeholder="light.turn_on"></div>
+      <div class="field"><label>Entity ID</label><input id="svc-entity" placeholder="light.office_lamp"></div>
+      <div class="field"><label>Data (JSON)</label><input id="svc-data" placeholder='{"brightness": 200}'></div>
       <button class="btn success" onclick="callService()">Execute</button>
     </div>
-    <div class="card">
-      <div class="card-title">Recent</div>
-      <div id="svc-history" style="font-size:0.8em;opacity:0.6;">No calls yet</div>
-    </div>
+    <div class="card"><div class="card-title">History</div><div id="svc-history" style="font-size:0.8em;opacity:0.5">No calls yet</div></div>
   </div>
 
   <!-- SETTINGS PAGE -->
   <div class="page" id="page-settings">
     <div class="card">
       <div class="card-title">Connection</div>
-      <div class="field">
-        <label>Home Assistant URL</label>
-        <input id="cfg-url" placeholder="http://homeassistant.local:8123">
-        <div class="hint">Your local HA URL (not the Nabu Casa cloud URL)</div>
-      </div>
-      <div class="field">
-        <label>Long-Lived Access Token</label>
-        <input id="cfg-token" type="password" placeholder="eyJ...">
-        <div class="hint">Profile > Long-Lived Access Tokens > Create Token</div>
-      </div>
-      <div class="field">
-        <label>Webhook ID (optional, for instant updates)</label>
-        <input id="cfg-webhook" placeholder="super_productivity_xxxx">
-        <div class="hint">Check HA logs after loading the SP integration</div>
-      </div>
+      <div class="field"><label>Home Assistant URL</label><input id="cfg-url" placeholder="http://homeassistant.local:8123"><div class="hint">Local URL, not Nabu Casa cloud</div></div>
+      <div class="field"><label>Access Token</label><input id="cfg-token" type="password" placeholder="eyJ..."><div class="hint">Profile > Long-Lived Access Tokens</div></div>
+      <div class="field"><label>Webhook ID</label><input id="cfg-webhook" placeholder="super_productivity_01KX..."><div class="hint">For instant sync to HA</div></div>
     </div>
     <div class="card">
-      <div class="card-title">Automation</div>
-      <div class="field">
-        <label>Focus Scene (activated on task start)</label>
-        <input id="cfg-focus" placeholder="scene.focus_mode">
-      </div>
-      <div class="field">
-        <label>Relax Scene (activated on task stop)</label>
-        <input id="cfg-relax" placeholder="scene.relax">
-      </div>
+      <div class="card-title">Sensors (comma-separated entity IDs)</div>
+      <div class="field"><input id="cfg-sensors" placeholder="sensor.temperature, binary_sensor.motion"></div>
     </div>
-    <div class="card">
-      <div class="card-title">Display</div>
-      <div class="field">
-        <label>Sensors to show (comma-separated entity IDs)</label>
-        <input id="cfg-sensors" placeholder="sensor.temperature, sensor.humidity">
-        <div class="hint">These appear in the Sensors tab</div>
-      </div>
-    </div>
-    <button class="btn success" onclick="saveSettings()">💾 Save Settings</button>
-    <button class="btn" onclick="testConnection()">🔌 Test Connection</button>
+    <button class="btn success" onclick="saveSettings()">Save Settings</button>
+    <button class="btn accent" onclick="testConn()">Test Connection</button>
   </div>
 
   <script>
-    let config = {};
-    let svcHistory = [];
+    let config = { haUrl:'', haToken:'', webhookId:'', rules:[], showSensors:'' };
+    let editingRuleIdx = -1;
+    let projects = [];
+    let tags = [];
+    let svcHist = [];
 
-    // --- Tab Navigation ---
+    // --- Tabs ---
     document.querySelectorAll('.tab').forEach(tab => {
       tab.addEventListener('click', () => {
         document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -260,159 +147,203 @@
 
     // --- Config ---
     async function loadConfig() {
-      try {
-        const raw = await PluginAPI.loadSyncedData();
-        if (raw) config = JSON.parse(raw);
-      } catch (e) { config = {}; }
+      try { const raw = await PluginAPI.loadSyncedData(); if (raw) config = JSON.parse(raw); } catch(e) {}
+      if (!config.rules) config.rules = [];
       populateSettings();
-      return config;
     }
-
-    async function saveConfig() {
-      await PluginAPI.persistDataSynced(JSON.stringify(config));
-    }
-
+    async function saveConfig() { await PluginAPI.persistDataSynced(JSON.stringify(config)); }
     function populateSettings() {
       document.getElementById('cfg-url').value = config.haUrl || '';
       document.getElementById('cfg-token').value = config.haToken || '';
       document.getElementById('cfg-webhook').value = config.webhookId || '';
-      document.getElementById('cfg-focus').value = config.focusScene || '';
-      document.getElementById('cfg-relax').value = config.relaxScene || '';
       document.getElementById('cfg-sensors').value = config.showSensors || '';
     }
-
     async function saveSettings() {
-      config.haUrl = document.getElementById('cfg-url').value.trim().replace(/\/$/, '');
+      config.haUrl = document.getElementById('cfg-url').value.trim().replace(/\/$/,'');
       config.haToken = document.getElementById('cfg-token').value.trim();
       config.webhookId = document.getElementById('cfg-webhook').value.trim();
-      config.focusScene = document.getElementById('cfg-focus').value.trim();
-      config.relaxScene = document.getElementById('cfg-relax').value.trim();
       config.showSensors = document.getElementById('cfg-sensors').value.trim();
       await saveConfig();
-      PluginAPI.showSnack({ msg: 'Settings saved!', type: 'SUCCESS' });
-      checkConnection();
-      loadSensors();
-      updateStatusDisplay();
+      PluginAPI.showSnack({msg:'Settings saved!',type:'SUCCESS'});
+      checkConn(); loadSensors();
     }
 
     // --- HA API ---
-    async function haApi(method, path, body = null) {
-      if (!config.haUrl || !config.haToken) return null;
-      const url = `${config.haUrl}/api/${path}`;
-      const opts = { method, headers: { 'Authorization': `Bearer ${config.haToken}`, 'Content-Type': 'application/json' } };
-      if (body) opts.body = JSON.stringify(body);
-      try {
-        const r = await fetch(url, opts);
-        if (r.ok) return await r.json();
-        return null;
-      } catch (e) { return null; }
+    async function haApi(method, path, body=null) {
+      if(!config.haUrl||!config.haToken) return null;
+      const opts={method,headers:{'Authorization':`Bearer ${config.haToken}`,'Content-Type':'application/json'}};
+      if(body) opts.body=JSON.stringify(body);
+      try{const r=await fetch(`${config.haUrl}/api/${path}`,opts); return r.ok?await r.json():null;}catch(e){return null;}
     }
 
-    // --- Connection ---
-    async function checkConnection() {
-      const badge = document.getElementById('conn-badge');
-      const dot = document.getElementById('conn-dot');
-      const text = document.getElementById('conn-text');
-      if (!config.haUrl || !config.haToken) {
-        badge.className = 'badge err'; dot.className = 'dot err'; text.textContent = 'Not configured';
-        return false;
-      }
-      const r = await haApi('GET', 'config');
-      if (r) {
-        badge.className = 'badge ok'; dot.className = 'dot ok'; text.textContent = 'Connected';
-        return true;
-      }
-      badge.className = 'badge err'; dot.className = 'dot err'; text.textContent = 'Offline';
-      return false;
+    async function checkConn() {
+      const b=document.getElementById('conn-badge'),d=document.getElementById('conn-dot'),t=document.getElementById('conn-text');
+      if(!config.haUrl||!config.haToken){b.className='badge err';d.className='dot err';t.textContent='Not set';return false;}
+      const r=await haApi('GET','config');
+      if(r){b.className='badge ok';d.className='dot ok';t.textContent='Connected';return true;}
+      b.className='badge err';d.className='dot err';t.textContent='Offline';return false;
+    }
+    async function testConn(){
+      const ok=await checkConn();
+      if(ok){const r=await haApi('GET','config');PluginAPI.showSnack({msg:`Connected: HA ${r.version}`,type:'SUCCESS'});}
+      else PluginAPI.showSnack({msg:'Cannot reach HA',type:'ERROR'});
     }
 
-    async function testConnection() {
-      const ok = await checkConnection();
-      if (ok) {
-        const r = await haApi('GET', 'config');
-        PluginAPI.showSnack({ msg: `Connected to HA ${r.version} (${r.location_name})`, type: 'SUCCESS' });
-      } else if (!config.haUrl || !config.haToken) {
-        PluginAPI.showSnack({ msg: 'Enter your HA URL and token first', type: 'WARN' });
-      } else {
-        PluginAPI.showSnack({ msg: 'Cannot reach Home Assistant', type: 'ERROR' });
-      }
+    // --- Rules ---
+    function renderRules() {
+      const list = document.getElementById('rules-list');
+      if (config.rules.length === 0) { list.innerHTML = '<p style="text-align:center;opacity:0.4;padding:20px">No rules yet. Add one to automate your smart home based on your tasks.</p>'; return; }
+      list.innerHTML = config.rules.map((r, i) => {
+        const triggerLabels = {task_start:'Task Start',task_stop:'Task Stop',task_complete:'Task Complete',all_done:'All Done',timer:`Timer (${r.conditions?.minutes||0}m)`,day_end:'Day End'};
+        const actionLabels = {scene:'Scene: '+((r.action||{}).entity||''),service:'Service: '+((r.action||{}).service||''),notify:'Notify: '+((r.action||{}).message||'').slice(0,30)};
+        return `<div class="rule-card">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div><div class="rule-name">${r.name||'Unnamed'}</div><div class="rule-desc">${triggerLabels[r.trigger]||r.trigger} → ${actionLabels[r.action?.type]||'?'}</div></div>
+            <div class="toggle ${r.enabled?'on':''}" onclick="toggleRule(${i})"></div>
+          </div>
+          <div class="rule-actions"><button class="btn sm accent" onclick="editRule(${i})">Edit</button><button class="btn sm err" onclick="deleteRule(${i})">Delete</button></div>
+        </div>`;
+      }).join('');
     }
 
-    // --- Scenes ---
-    async function doScene(type) {
-      const scene = type === 'focus' ? config.focusScene : config.relaxScene;
-      if (!scene) { PluginAPI.showSnack({ msg: `No ${type} scene configured (Settings tab)`, type: 'WARN' }); return; }
-      const r = await haApi('POST', 'services/scene/turn_on', { entity_id: scene });
-      if (r !== null) PluginAPI.showSnack({ msg: `${type === 'focus' ? 'Focus' : 'Relax'} activated`, type: 'SUCCESS' });
-      else PluginAPI.showSnack({ msg: 'Failed', type: 'ERROR' });
+    async function toggleRule(i) { config.rules[i].enabled = !config.rules[i].enabled; await saveConfig(); renderRules(); }
+    async function deleteRule(i) { config.rules.splice(i, 1); await saveConfig(); renderRules(); }
+
+    async function loadProjectsAndTags() {
+      try { projects = await PluginAPI.getAllProjects(); } catch(e) { projects = []; }
+      try { tags = await PluginAPI.getAllTags(); } catch(e) { tags = []; }
     }
 
-    async function doService(service, entity) {
-      const [domain, svc] = service.split('.');
-      const data = entity ? { entity_id: entity } : {};
-      const r = await haApi('POST', `services/${domain}/${svc}`, data);
-      if (r !== null) PluginAPI.showSnack({ msg: `${service} called`, type: 'SUCCESS' });
+    function populateDropdowns() {
+      const ps = document.getElementById('re-project');
+      ps.innerHTML = '<option value="">Any project</option>' + projects.map(p => `<option value="${p.id}">${p.title}</option>`).join('');
+      const ts = document.getElementById('re-tag');
+      ts.innerHTML = '<option value="">Any tag</option>' + tags.map(t => `<option value="${t.id}">${t.title}</option>`).join('');
     }
 
-    // --- Services Page ---
-    async function callService() {
-      const service = document.getElementById('svc-service').value.trim();
-      const entity = document.getElementById('svc-entity').value.trim();
-      const extraRaw = document.getElementById('svc-data').value.trim();
-      if (!service) return;
-      const [domain, svc] = service.split('.');
-      if (!domain || !svc) { PluginAPI.showSnack({ msg: 'Format: domain.service', type: 'WARN' }); return; }
-      let data = {};
-      if (entity) data.entity_id = entity;
-      if (extraRaw) { try { Object.assign(data, JSON.parse(extraRaw)); } catch(e) { PluginAPI.showSnack({msg:'Invalid JSON',type:'ERROR'}); return; } }
-      const r = await haApi('POST', `services/${domain}/${svc}`, data);
-      const entry = `${new Date().toLocaleTimeString()} - ${service}${entity ? ' ('+entity+')' : ''}: ${r !== null ? 'OK' : 'FAIL'}`;
-      svcHistory.unshift(entry);
-      if (svcHistory.length > 10) svcHistory.pop();
-      document.getElementById('svc-history').innerHTML = svcHistory.join('<br>');
-      if (r !== null) PluginAPI.showSnack({ msg: `${service} executed`, type: 'SUCCESS' });
-      else PluginAPI.showSnack({ msg: 'Service call failed', type: 'ERROR' });
+    function addRule() {
+      editingRuleIdx = -1;
+      document.getElementById('re-name').value = '';
+      document.getElementById('re-trigger').value = 'task_start';
+      document.getElementById('re-minutes').value = '';
+      document.getElementById('re-project').value = '';
+      document.getElementById('re-tag').value = '';
+      document.getElementById('re-title').value = '';
+      document.getElementById('re-action-type').value = 'scene';
+      document.getElementById('re-scene').value = '';
+      document.getElementById('re-service').value = '';
+      document.getElementById('re-entity').value = '';
+      document.getElementById('re-message').value = '';
+      toggleActionFields(); toggleTimerField();
+      populateDropdowns();
+      showPage('editor');
     }
+
+    function editRule(i) {
+      editingRuleIdx = i;
+      const r = config.rules[i];
+      document.getElementById('re-name').value = r.name || '';
+      document.getElementById('re-trigger').value = r.trigger || 'task_start';
+      document.getElementById('re-minutes').value = r.conditions?.minutes || '';
+      document.getElementById('re-project').value = r.conditions?.projectId || '';
+      document.getElementById('re-tag').value = r.conditions?.tagId || '';
+      document.getElementById('re-title').value = r.conditions?.titleContains || '';
+      document.getElementById('re-action-type').value = r.action?.type || 'scene';
+      document.getElementById('re-scene').value = r.action?.entity || '';
+      document.getElementById('re-service').value = r.action?.service || '';
+      document.getElementById('re-entity').value = r.action?.entity || '';
+      document.getElementById('re-message').value = r.action?.message || '';
+      toggleActionFields(); toggleTimerField();
+      populateDropdowns();
+      showPage('editor');
+    }
+
+    async function saveRule() {
+      const rule = {
+        id: editingRuleIdx >= 0 ? config.rules[editingRuleIdx].id : 'rule_' + Date.now(),
+        name: document.getElementById('re-name').value || 'Unnamed Rule',
+        enabled: editingRuleIdx >= 0 ? config.rules[editingRuleIdx].enabled : true,
+        trigger: document.getElementById('re-trigger').value,
+        conditions: {},
+        action: {},
+      };
+      const proj = document.getElementById('re-project').value;
+      const tag = document.getElementById('re-tag').value;
+      const title = document.getElementById('re-title').value.trim();
+      const mins = document.getElementById('re-minutes').value;
+      if (proj) rule.conditions.projectId = proj;
+      if (tag) rule.conditions.tagId = tag;
+      if (title) rule.conditions.titleContains = title;
+      if (mins) rule.conditions.minutes = parseInt(mins);
+
+      const actionType = document.getElementById('re-action-type').value;
+      rule.action.type = actionType;
+      if (actionType === 'scene') rule.action.entity = document.getElementById('re-scene').value.trim();
+      else if (actionType === 'service') { rule.action.service = document.getElementById('re-service').value.trim(); rule.action.entity = document.getElementById('re-entity').value.trim(); }
+      else if (actionType === 'notify') rule.action.message = document.getElementById('re-message').value.trim();
+
+      if (editingRuleIdx >= 0) config.rules[editingRuleIdx] = rule;
+      else config.rules.push(rule);
+
+      await saveConfig();
+      renderRules();
+      showPage('rules');
+      PluginAPI.showSnack({msg:'Rule saved!',type:'SUCCESS'});
+    }
+
+    function cancelEdit() { showPage('rules'); }
+
+    function showPage(name) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.getElementById('page-' + name).classList.add('active');
+      if (name === 'rules') { document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active')); document.querySelector('[data-page=rules]').classList.add('active'); }
+    }
+
+    function toggleActionFields() {
+      const t = document.getElementById('re-action-type').value;
+      document.getElementById('re-scene-field').style.display = t==='scene'?'':'none';
+      document.getElementById('re-service-field').style.display = t==='service'?'':'none';
+      document.getElementById('re-entity-field').style.display = t==='service'?'':'none';
+      document.getElementById('re-notify-field').style.display = t==='notify'?'':'none';
+    }
+    function toggleTimerField() {
+      const t = document.getElementById('re-trigger').value;
+      document.getElementById('re-timer-field').style.display = t==='timer'?'':'none';
+    }
+    document.getElementById('re-trigger').addEventListener('change', toggleTimerField);
 
     // --- Sensors ---
     async function loadSensors() {
-      const grid = document.getElementById('sensor-grid');
-      const noSensors = document.getElementById('no-sensors');
-      if (!config.showSensors) { grid.innerHTML = ''; noSensors.style.display = 'block'; return; }
-      const ids = config.showSensors.split(',').map(s => s.trim()).filter(Boolean);
-      if (ids.length === 0) { grid.innerHTML = ''; noSensors.style.display = 'block'; return; }
-      noSensors.style.display = 'none';
-      grid.innerHTML = '';
-      for (const id of ids) {
-        const state = await haApi('GET', `states/${id}`);
-        const card = document.createElement('div');
-        card.className = 'sensor-card';
-        if (state) {
-          const name = state.attributes.friendly_name || id.split('.').pop();
-          const val = state.state + (state.attributes.unit_of_measurement ? ' ' + state.attributes.unit_of_measurement : '');
-          card.innerHTML = `<div class="label">${name}</div><div class="value">${val}</div>`;
-        } else {
-          card.innerHTML = `<div class="label">${id}</div><div class="value">--</div>`;
-        }
-        grid.appendChild(card);
+      const grid=document.getElementById('sensor-grid'), ns=document.getElementById('no-sensors');
+      if(!config.showSensors){grid.innerHTML='';ns.style.display='block';return;}
+      const ids=config.showSensors.split(',').map(s=>s.trim()).filter(Boolean);
+      if(!ids.length){grid.innerHTML='';ns.style.display='block';return;}
+      ns.style.display='none'; grid.innerHTML='';
+      for(const id of ids){
+        const st=await haApi('GET',`states/${id}`);
+        const c=document.createElement('div');c.className='sensor-card';
+        if(st){const nm=st.attributes.friendly_name||id.split('.').pop();const v=st.state+(st.attributes.unit_of_measurement?' '+st.attributes.unit_of_measurement:'');c.innerHTML=`<div class="label">${nm}</div><div class="value">${v}</div>`;}
+        else c.innerHTML=`<div class="label">${id}</div><div class="value">--</div>`;
+        grid.appendChild(c);
       }
     }
 
-    // --- Status ---
-    function updateStatusDisplay() {
-      document.getElementById('wh-status').textContent = config.webhookId ? 'Active' : 'Not set';
-      document.getElementById('as-status').textContent = (config.focusScene || config.relaxScene) ? 'Enabled' : 'Off';
+    // --- Services ---
+    async function callService(){
+      const svc=document.getElementById('svc-service').value.trim(),ent=document.getElementById('svc-entity').value.trim(),extra=document.getElementById('svc-data').value.trim();
+      if(!svc)return;const[domain,s]=svc.split('.');if(!domain||!s){PluginAPI.showSnack({msg:'Format: domain.service',type:'WARN'});return;}
+      let data={};if(ent)data.entity_id=ent;if(extra)try{Object.assign(data,JSON.parse(extra));}catch(e){PluginAPI.showSnack({msg:'Invalid JSON',type:'ERROR'});return;}
+      const r=await haApi('POST',`services/${domain}/${s}`,data);
+      svcHist.unshift(`${new Date().toLocaleTimeString()} ${svc}${ent?' ('+ent+')':''}: ${r!==null?'OK':'FAIL'}`);
+      if(svcHist.length>8)svcHist.pop();
+      document.getElementById('svc-history').innerHTML=svcHist.join('<br>');
+      PluginAPI.showSnack({msg:r!==null?`${svc} OK`:'Failed',type:r!==null?'SUCCESS':'ERROR'});
     }
 
     // --- Init ---
-    async function init() {
-      await loadConfig();
-      await checkConnection();
-      await loadSensors();
-      updateStatusDisplay();
-    }
+    async function init(){await loadConfig();await checkConn();await loadProjectsAndTags();renderRules();loadSensors();}
     init();
-    setInterval(loadSensors, 30000);
+    setInterval(loadSensors,30000);
   </script>
 </body>
 </html>
