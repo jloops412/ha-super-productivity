@@ -225,19 +225,16 @@ const b = getBridge();
 if(!b)return;
 const entities = await b.fetchEntities();
 if(!entities)return;
-const states = null;
-if(!states||!Array.isArray(states))return;
-haEntities.all=states;
-haEntities.scenes=states.filter(s=>s.entity_id.startsWith('scene.'));
-haEntities.lights=states.filter(s=>s.entity_id.startsWith('light.'));
-haEntities.switches=states.filter(s=>s.entity_id.startsWith('switch.'));
-haEntities.scripts=states.filter(s=>s.entity_id.startsWith('script.'));
-haEntities.automations=states.filter(s=>s.entity_id.startsWith('automation.'));
-haEntities.sensors=states.filter(s=>s.entity_id.startsWith('sensor.')||s.entity_id.startsWith('binary_sensor.'));
-haEntities.media_players=states.filter(s=>s.entity_id.startsWith('media_player.'));
+haEntities.scenes=entities.scenes||[];
+haEntities.lights=entities.lights||[];
+haEntities.switches=entities.switches||[];
+haEntities.scripts=entities.scripts||[];
+haEntities.automations=entities.automations||[];
+haEntities.sensors=entities.sensors||[];
+haEntities.media_players=entities.media_players||[];
 buildEntitySelect('svc-entity-select',['lights','switches','scripts','scenes','automations','media_players'],'');
 populateSensorPicker();
-console.log('[HA Bridge] Loaded',states.length,'entities');
+console.log('[HA UI] Loaded entities from bridge');
 }
 
 function entityName(e){return e.attributes?.friendly_name||e.entity_id.split('.').pop().replace(/_/g,' ');}
