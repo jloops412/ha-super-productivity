@@ -57,16 +57,32 @@ A rules-based automation engine that connects Super Productivity to Home Assista
 
 ## How It Works
 
-- **Hooks** listen for SP events (task start/stop/complete)
-- **Rules engine** evaluates conditions and fires matched actions
-- **Actions** call HA's REST API directly (scenes, services, notifications)
-- **Timer/Idle** rules use background intervals to detect duration thresholds
-- **Config** persists via SP's plugin data sync (works across devices if SP sync is enabled)
+- **plugin.js** (host context, survives navigation):
+  - Stores HA token securely via `setSecret`/`getSecret`
+  - Handles ALL authenticated HA API calls
+  - Runs the rules engine and hook handlers
+  - Exposes `window.haBridge` bridge for the iframe
+- **index.html** (iframe, destroyed on navigation):
+  - Pure UI — rules editor, sensor display, service caller, settings
+  - Communicates with plugin.js via `window.parent.haBridge`
+  - Never stores or directly uses credentials
+- **Hooks** fire non-blocking (via `setTimeout`) to avoid SP's ~2s timeout
+- **Timer/Idle** rules use background intervals in plugin.js
+- **Config** persists via `persistDataSynced` (from plugin.js), token via `setSecret`
+
+## Security
+
+- Access token stored via `PluginAPI.setSecret()` — **never in synced/exported data**
+- `setSecret`/`getSecret` only available from plugin.js (not iframe)
+- Iframe never handles raw credentials
+- Old configs with embedded tokens auto-migrate to secret storage
 
 ## Version History
 
+- **5.0** — Architecture rewrite: plugin.js owns secrets + API, iframe is pure UI (bridge pattern)
+- **4.2** — Security: token moved to setSecret/getSecret, today detection fixed
+- **4.0** — All 12 SP hooks, 20 triggers, correct currentTaskChange payload handling
 - **3.2** — Full rewrite: 8 triggers, 9 action types, sensor picker, media/TTS/light control
-- **3.1** — Added automation/script actions, sensor picker dropdown
 - **3.0** — Rules engine, timer/idle triggers, deferred hooks
 - **2.0** — Config via persistDataSynced, tabbed UI
 - **1.0** — Basic scene toggle, webhook push

@@ -143,9 +143,16 @@ The **Services** tab lets you call any HA service on-demand with entity dropdown
 
 All settings are in the **Settings** tab within the plugin:
 - HA URL (local, not cloud)
-- Long-Lived Access Token
+- Long-Lived Access Token (stored securely via `setSecret`, never synced/exported)
 - Webhook ID (for instant sync)
 - Sensor selection (dropdown picker)
+
+### Security
+
+The plugin follows SP's security best practices:
+- **Access token** stored exclusively via `PluginAPI.setSecret()` — never in `persistDataSynced` (which syncs to servers/exports/backups)
+- **plugin.js** handles all authenticated API calls — the iframe UI never sees or stores the raw token
+- Old configs with embedded tokens are auto-migrated to secret storage on load
 
 ---
 
@@ -164,28 +171,33 @@ Requires the `button-card` custom card (install via HACS > Frontend).
 ## Architecture
 
 ```
-┌─────────────────┐         ┌─────────────────────────┐
-│ Super            │  REST   │  Home Assistant          │
-│ Productivity     │◄───────►│                         │
-│                  │  API    │  Integration (polling)   │
-│  ┌────────────┐  │         │  - Sensors              │
-│  │ HA Bridge  │──┼────────►│  - Todo lists           │
-│  │ Plugin     │  │ webhook │  - Controls             │
-│  └────────────┘  │         │  - Events               │
-└─────────────────┘         └─────────────────────────┘
-       │                              │
-       │ Rules Engine                 │ Automations
-       ▼                              ▼
-  HA Services API              Smart Home Devices
-  (scenes, lights,             (lights, speakers,
-   media, notify)               locks, etc.)
+┌─────────────────────┐         ┌─────────────────────────┐
+│  Super Productivity  │  REST   │  Home Assistant          │
+│                      │◄───────►│                         │
+│  ┌────────────────┐  │  API    │  Integration (polling)   │
+│  │ plugin.js      │  │         │  - Sensors              │
+│  │ (host context) │──┼────────►│  - Todo lists           │
+│  │ - secrets      │  │ webhook │  - Controls             │
+│  │ - rules engine │  │         │  - Events               │
+│  │ - HA API proxy │  │         │  - Calendar             │
+│  └───────┬────────┘  │         └─────────────────────────┘
+│          │            │                    │
+│  ┌───────▼────────┐  │                    │ Automations
+│  │ index.html     │  │                    ▼
+│  │ (iframe UI)    │  │            Smart Home Devices
+│  │ - rules editor │  │
+│  │ - sensor view  │  │
+│  │ - service call │  │
+│  └────────────────┘  │
+└─────────────────────┘
 ```
 
 **Data flow:**
 1. HA integration polls SP's Local REST API every 30s (or instant via webhook)
-2. SP plugin pushes events to HA webhook on task changes
-3. SP plugin calls HA services directly based on rules
+2. SP plugin.js pushes events to HA webhook on task changes
+3. SP plugin.js calls HA services directly based on rules
 4. HA fires events that automations can trigger on
+5. iframe UI communicates with plugin.js via `window.parent.haBridge`
 
 ---
 
