@@ -1,7 +1,7 @@
 {
   "id": "home-assistant-bridge",
   "name": "Home Assistant Bridge",
-  "version": "3.0.0",
+  "version": "3.1.1",
   "description": "Full bidirectional bridge between Super Productivity and Home Assistant. Control your smart home from SP, view HA sensor data, and get instant task sync with HA automations.",
   "manifestVersion": 1,
   "minSupVersion": "10.0.0",

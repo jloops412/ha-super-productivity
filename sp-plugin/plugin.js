@@ -196,7 +196,9 @@ async function handleFinishDay() {
   } catch(e) {}
 }
 
-// --- UI ---
+// --- UI Registration ---
+// Only registerSidePanelButton - NO header buttons (keeps top bar clean)
+// The side panel button opens our full view
 PluginAPI.registerSidePanelButton({
   label: 'Home Assistant',
   icon: 'home',
@@ -205,5 +207,5 @@ PluginAPI.registerSidePanelButton({
 
 // --- Init ---
 loadConfig().then(() => {
-  console.log(`[HA Bridge v3.0] Loaded. ${config.rules.length} rules configured.`);
+  console.log(`[HA Bridge v3.1] Loaded. ${config.rules.length} rules configured.`);
 });
