@@ -5,328 +5,414 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Home Assistant Bridge</title>
   <style>
+    :root {
+      --bg-primary: #1e1e2e;
+      --bg-card: rgba(255,255,255,0.04);
+      --bg-card-hover: rgba(255,255,255,0.08);
+      --border: rgba(255,255,255,0.08);
+      --text: #e0e0e0;
+      --text-dim: rgba(255,255,255,0.5);
+      --accent: #42a5f5;
+      --success: #66bb6a;
+      --warn: #ffa726;
+      --error: #ef5350;
+      --radius: 10px;
+    }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      padding: 16px;
-      color: #e0e0e0;
+      color: var(--text);
       background: transparent;
-      font-size: 14px;
+      font-size: 13px;
+      line-height: 1.5;
     }
-    .header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 16px;
-    }
-    .header h1 { font-size: 1.1em; font-weight: 600; }
-    .badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      padding: 3px 8px;
-      border-radius: 10px;
-      font-size: 0.7em;
-      font-weight: 500;
-    }
-    .badge.ok { background: rgba(76,175,80,0.2); color: #66bb6a; border: 1px solid rgba(76,175,80,0.3); }
-    .badge.err { background: rgba(244,67,54,0.2); color: #ef5350; border: 1px solid rgba(244,67,54,0.3); }
-    .dot { width: 6px; height: 6px; border-radius: 50%; }
-    .dot.ok { background: #66bb6a; animation: pulse 2s infinite; }
-    .dot.err { background: #ef5350; }
-    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
 
-    .section { margin-bottom: 16px; }
-    .section-title {
+    /* Navigation tabs */
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      background: var(--bg-primary);
+      z-index: 10;
+    }
+    .tab {
+      flex: 1;
+      padding: 10px 8px;
+      text-align: center;
+      font-size: 0.8em;
+      font-weight: 500;
+      opacity: 0.5;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+    }
+    .tab:hover { opacity: 0.8; }
+    .tab.active { opacity: 1; border-bottom-color: var(--accent); color: var(--accent); }
+
+    /* Pages */
+    .page { display: none; padding: 16px; }
+    .page.active { display: block; }
+
+    /* Cards */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px;
+      margin-bottom: 10px;
+    }
+    .card-title {
       font-size: 0.7em;
       text-transform: uppercase;
       letter-spacing: 1.5px;
-      opacity: 0.5;
-      margin-bottom: 8px;
+      opacity: 0.4;
+      margin-bottom: 10px;
     }
 
-    .card {
-      background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 10px;
-      padding: 12px;
-      margin-bottom: 8px;
-    }
+    /* Rows */
+    .row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; }
+    .row + .row { border-top: 1px solid rgba(255,255,255,0.03); }
+    .row-label { opacity: 0.7; font-size: 0.9em; }
+    .row-value { font-weight: 600; }
 
-    .sensor-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 6px 0;
-      border-bottom: 1px solid rgba(255,255,255,0.04);
-    }
-    .sensor-row:last-child { border-bottom: none; }
-    .sensor-name { opacity: 0.7; font-size: 0.85em; }
-    .sensor-value { font-weight: 600; }
-
+    /* Buttons */
     .btn {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      width: 100%;
-      padding: 10px;
-      border: 1px solid rgba(255,255,255,0.15);
-      border-radius: 8px;
-      background: rgba(255,255,255,0.05);
-      color: #e0e0e0;
-      font-size: 0.85em;
-      cursor: pointer;
-      transition: all 0.2s;
-      margin-bottom: 6px;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      width: 100%; padding: 10px; border-radius: 8px;
+      border: 1px solid var(--border); background: var(--bg-card);
+      color: var(--text); font-size: 0.85em; cursor: pointer;
+      transition: all 0.15s; margin-bottom: 6px;
     }
-    .btn:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.25); }
-    .btn.focus { border-color: rgba(66,165,245,0.5); color: #42a5f5; }
-    .btn.focus:hover { background: rgba(66,165,245,0.1); }
-    .btn.relax { border-color: rgba(171,71,188,0.5); color: #ab47bc; }
-    .btn.relax:hover { background: rgba(171,71,188,0.1); }
-    .btn.service { border-color: rgba(255,167,38,0.5); color: #ffa726; }
-    .btn.service:hover { background: rgba(255,167,38,0.1); }
+    .btn:hover { background: var(--bg-card-hover); }
+    .btn.accent { border-color: rgba(66,165,245,0.4); color: var(--accent); }
+    .btn.accent:hover { background: rgba(66,165,245,0.1); }
+    .btn.success { border-color: rgba(102,187,106,0.4); color: var(--success); }
+    .btn.success:hover { background: rgba(102,187,106,0.1); }
+    .btn.warn { border-color: rgba(255,167,38,0.4); color: var(--warn); }
+    .btn.warn:hover { background: rgba(255,167,38,0.1); }
 
-    .config-hint {
-      font-size: 0.8em;
-      opacity: 0.5;
-      text-align: center;
-      padding: 20px;
-      font-style: italic;
+    /* Form inputs */
+    .field { margin-bottom: 12px; }
+    .field label { display: block; font-size: 0.8em; opacity: 0.6; margin-bottom: 4px; }
+    .field input, .field select {
+      width: 100%; padding: 8px 10px; border-radius: 6px;
+      border: 1px solid var(--border); background: rgba(0,0,0,0.3);
+      color: var(--text); font-size: 0.9em;
+    }
+    .field input:focus { outline: none; border-color: var(--accent); }
+    .field .hint { font-size: 0.75em; opacity: 0.4; margin-top: 3px; }
+
+    /* Status badge */
+    .badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 3px 8px; border-radius: 10px; font-size: 0.75em; font-weight: 500;
+    }
+    .badge.ok { background: rgba(76,175,80,0.15); color: var(--success); }
+    .badge.err { background: rgba(244,67,54,0.15); color: var(--error); }
+    .dot { width: 6px; height: 6px; border-radius: 50%; }
+    .dot.ok { background: var(--success); animation: pulse 2s infinite; }
+    .dot.err { background: var(--error); }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+    /* Service caller */
+    .service-row { display: flex; gap: 6px; }
+    .service-row input { flex: 1; }
+    .service-row button {
+      padding: 8px 14px; border-radius: 6px; border: 1px solid rgba(102,187,106,0.4);
+      background: rgba(102,187,106,0.1); color: var(--success); cursor: pointer; font-size: 0.85em;
     }
 
-    .custom-service {
-      display: flex;
-      gap: 6px;
-      margin-top: 8px;
+    /* Sensor grid */
+    .sensor-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .sensor-card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 8px; padding: 10px; text-align: center;
     }
-    .custom-service input {
-      flex: 1;
-      padding: 8px;
-      border: 1px solid rgba(255,255,255,0.15);
-      border-radius: 6px;
-      background: rgba(0,0,0,0.3);
-      color: #e0e0e0;
-      font-size: 0.85em;
-    }
-    .custom-service button {
-      padding: 8px 12px;
-      border: 1px solid rgba(76,175,80,0.5);
-      border-radius: 6px;
-      background: rgba(76,175,80,0.1);
-      color: #66bb6a;
-      cursor: pointer;
-      font-size: 0.85em;
-    }
+    .sensor-card .value { font-size: 1.4em; font-weight: 700; margin: 4px 0; }
+    .sensor-card .label { font-size: 0.7em; opacity: 0.5; }
+
+    .header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; }
+    .header h1 { font-size: 1em; font-weight: 600; }
   </style>
 </head>
 <body>
   <div class="header">
     <h1>Home Assistant</h1>
-    <span class="badge" id="status-badge">
-      <span class="dot" id="status-dot"></span>
-      <span id="status-text">Checking...</span>
-    </span>
+    <span class="badge" id="conn-badge"><span class="dot" id="conn-dot"></span><span id="conn-text">...</span></span>
   </div>
 
-  <div id="not-configured" style="display:none;">
-    <div class="config-hint">
-      Configure your HA URL and Access Token in the plugin settings to get started.
-      <br><br>
-      Plugin Settings > Home Assistant Bridge > Configure
+  <div class="tabs">
+    <div class="tab active" data-page="control">Control</div>
+    <div class="tab" data-page="sensors">Sensors</div>
+    <div class="tab" data-page="services">Services</div>
+    <div class="tab" data-page="settings">Settings</div>
+  </div>
+
+  <!-- CONTROL PAGE -->
+  <div class="page active" id="page-control">
+    <div class="card">
+      <div class="card-title">Scenes</div>
+      <button class="btn accent" onclick="doScene('focus')">💡 Focus Mode</button>
+      <button class="btn warn" onclick="doScene('relax')">🧘 Relax Mode</button>
+    </div>
+    <div class="card">
+      <div class="card-title">Quick Actions</div>
+      <button class="btn success" onclick="doService('light.toggle','')">💡 Toggle Lights</button>
+      <button class="btn" onclick="doService('script.turn_on','')">▶️ Run Script</button>
+    </div>
+    <div class="card">
+      <div class="card-title">Sync Status</div>
+      <div class="row"><span class="row-label">Webhook</span><span class="row-value" id="wh-status">--</span></div>
+      <div class="row"><span class="row-label">Auto-Scene</span><span class="row-value" id="as-status">--</span></div>
+      <div class="row"><span class="row-label">Last Event</span><span class="row-value" id="last-event">--</span></div>
     </div>
   </div>
 
-  <div id="main-content" style="display:none;">
-    <!-- Scenes / Controls -->
-    <div class="section">
-      <div class="section-title">Controls</div>
-      <button class="btn focus" onclick="activateScene('focus')">
-        <span>💡</span> Focus Mode
-      </button>
-      <button class="btn relax" onclick="activateScene('relax')">
-        <span>🧘</span> Relax Mode
-      </button>
-      <div class="custom-service">
-        <input type="text" id="service-input" placeholder="light.turn_on / entity_id">
-        <button onclick="callCustomService()">Run</button>
+  <!-- SENSORS PAGE -->
+  <div class="page" id="page-sensors">
+    <div id="sensor-grid" class="sensor-grid"></div>
+    <p id="no-sensors" style="text-align:center;opacity:0.4;padding:30px;">
+      Configure sensors in Settings tab
+    </p>
+  </div>
+
+  <!-- SERVICES PAGE -->
+  <div class="page" id="page-services">
+    <div class="card">
+      <div class="card-title">Call HA Service</div>
+      <div class="field">
+        <label>Service (domain.action)</label>
+        <input id="svc-service" placeholder="light.turn_on">
+      </div>
+      <div class="field">
+        <label>Entity ID (optional)</label>
+        <input id="svc-entity" placeholder="light.office_lamp">
+      </div>
+      <div class="field">
+        <label>Extra data (JSON, optional)</label>
+        <input id="svc-data" placeholder='{"brightness": 200}'>
+      </div>
+      <button class="btn success" onclick="callService()">Execute</button>
+    </div>
+    <div class="card">
+      <div class="card-title">Recent</div>
+      <div id="svc-history" style="font-size:0.8em;opacity:0.6;">No calls yet</div>
+    </div>
+  </div>
+
+  <!-- SETTINGS PAGE -->
+  <div class="page" id="page-settings">
+    <div class="card">
+      <div class="card-title">Connection</div>
+      <div class="field">
+        <label>Home Assistant URL</label>
+        <input id="cfg-url" placeholder="http://homeassistant.local:8123">
+        <div class="hint">Your local HA URL (not the Nabu Casa cloud URL)</div>
+      </div>
+      <div class="field">
+        <label>Long-Lived Access Token</label>
+        <input id="cfg-token" type="password" placeholder="eyJ...">
+        <div class="hint">Profile > Long-Lived Access Tokens > Create Token</div>
+      </div>
+      <div class="field">
+        <label>Webhook ID (optional, for instant updates)</label>
+        <input id="cfg-webhook" placeholder="super_productivity_xxxx">
+        <div class="hint">Check HA logs after loading the SP integration</div>
       </div>
     </div>
-
-    <!-- Sensors -->
-    <div class="section" id="sensors-section" style="display:none;">
-      <div class="section-title">Sensors</div>
-      <div class="card" id="sensors-container"></div>
-    </div>
-
-    <!-- SP Status pushed to HA -->
-    <div class="section">
-      <div class="section-title">SP → HA Status</div>
-      <div class="card">
-        <div class="sensor-row">
-          <span class="sensor-name">Webhook</span>
-          <span class="sensor-value" id="webhook-status">--</span>
-        </div>
-        <div class="sensor-row">
-          <span class="sensor-name">Last Push</span>
-          <span class="sensor-value" id="last-push">Never</span>
-        </div>
-        <div class="sensor-row">
-          <span class="sensor-name">Auto-Scene</span>
-          <span class="sensor-value" id="auto-scene-status">--</span>
-        </div>
+    <div class="card">
+      <div class="card-title">Automation</div>
+      <div class="field">
+        <label>Focus Scene (activated on task start)</label>
+        <input id="cfg-focus" placeholder="scene.focus_mode">
+      </div>
+      <div class="field">
+        <label>Relax Scene (activated on task stop)</label>
+        <input id="cfg-relax" placeholder="scene.relax">
       </div>
     </div>
+    <div class="card">
+      <div class="card-title">Display</div>
+      <div class="field">
+        <label>Sensors to show (comma-separated entity IDs)</label>
+        <input id="cfg-sensors" placeholder="sensor.temperature, sensor.humidity">
+        <div class="hint">These appear in the Sensors tab</div>
+      </div>
+    </div>
+    <button class="btn success" onclick="saveSettings()">💾 Save Settings</button>
+    <button class="btn" onclick="testConnection()">🔌 Test Connection</button>
   </div>
 
   <script>
     let config = {};
+    let svcHistory = [];
 
+    // --- Tab Navigation ---
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById('page-' + tab.dataset.page).classList.add('active');
+      });
+    });
+
+    // --- Config ---
     async function loadConfig() {
       try {
-        config = (await PluginAPI.getConfig()) || {};
-      } catch (e) {
-        config = {};
-      }
+        const raw = await PluginAPI.loadSyncedData('config');
+        if (raw) config = JSON.parse(raw);
+      } catch (e) { config = {}; }
+      populateSettings();
+      return config;
     }
 
+    async function saveConfig() {
+      await PluginAPI.persistDataSynced('config', JSON.stringify(config));
+    }
+
+    function populateSettings() {
+      document.getElementById('cfg-url').value = config.haUrl || '';
+      document.getElementById('cfg-token').value = config.haToken || '';
+      document.getElementById('cfg-webhook').value = config.webhookId || '';
+      document.getElementById('cfg-focus').value = config.focusScene || '';
+      document.getElementById('cfg-relax').value = config.relaxScene || '';
+      document.getElementById('cfg-sensors').value = config.showSensors || '';
+    }
+
+    async function saveSettings() {
+      config.haUrl = document.getElementById('cfg-url').value.trim().replace(/\/$/, '');
+      config.haToken = document.getElementById('cfg-token').value.trim();
+      config.webhookId = document.getElementById('cfg-webhook').value.trim();
+      config.focusScene = document.getElementById('cfg-focus').value.trim();
+      config.relaxScene = document.getElementById('cfg-relax').value.trim();
+      config.showSensors = document.getElementById('cfg-sensors').value.trim();
+      await saveConfig();
+      PluginAPI.showSnack({ msg: 'Settings saved!', type: 'SUCCESS' });
+      checkConnection();
+      loadSensors();
+      updateStatusDisplay();
+    }
+
+    // --- HA API ---
     async function haApi(method, path, body = null) {
       if (!config.haUrl || !config.haToken) return null;
-      const url = `${config.haUrl.replace(/\/$/, '')}/api/${path}`;
-      const options = {
-        method,
-        headers: {
-          'Authorization': `Bearer ${config.haToken}`,
-          'Content-Type': 'application/json',
-        },
-      };
-      if (body) options.body = JSON.stringify(body);
+      const url = `${config.haUrl}/api/${path}`;
+      const opts = { method, headers: { 'Authorization': `Bearer ${config.haToken}`, 'Content-Type': 'application/json' } };
+      if (body) opts.body = JSON.stringify(body);
       try {
-        const resp = await fetch(url, options);
-        if (resp.ok) return await resp.json();
+        const r = await fetch(url, opts);
+        if (r.ok) return await r.json();
         return null;
-      } catch (e) {
-        return null;
-      }
+      } catch (e) { return null; }
     }
 
+    // --- Connection ---
     async function checkConnection() {
-      const badge = document.getElementById('status-badge');
-      const dot = document.getElementById('status-dot');
-      const text = document.getElementById('status-text');
-
+      const badge = document.getElementById('conn-badge');
+      const dot = document.getElementById('conn-dot');
+      const text = document.getElementById('conn-text');
       if (!config.haUrl || !config.haToken) {
-        badge.className = 'badge err';
-        dot.className = 'dot err';
-        text.textContent = 'Not configured';
-        document.getElementById('not-configured').style.display = 'block';
-        document.getElementById('main-content').style.display = 'none';
+        badge.className = 'badge err'; dot.className = 'dot err'; text.textContent = 'Not configured';
         return false;
       }
-
-      const result = await haApi('GET', 'config');
-      if (result) {
-        badge.className = 'badge ok';
-        dot.className = 'dot ok';
-        text.textContent = `v${result.version}`;
-        document.getElementById('not-configured').style.display = 'none';
-        document.getElementById('main-content').style.display = 'block';
+      const r = await haApi('GET', 'config');
+      if (r) {
+        badge.className = 'badge ok'; dot.className = 'dot ok'; text.textContent = 'Connected';
         return true;
+      }
+      badge.className = 'badge err'; dot.className = 'dot err'; text.textContent = 'Offline';
+      return false;
+    }
+
+    async function testConnection() {
+      const ok = await checkConnection();
+      if (ok) {
+        const r = await haApi('GET', 'config');
+        PluginAPI.showSnack({ msg: `Connected to HA ${r.version} (${r.location_name})`, type: 'SUCCESS' });
+      } else if (!config.haUrl || !config.haToken) {
+        PluginAPI.showSnack({ msg: 'Enter your HA URL and token first', type: 'WARN' });
       } else {
-        badge.className = 'badge err';
-        dot.className = 'dot err';
-        text.textContent = 'Offline';
-        document.getElementById('not-configured').style.display = 'none';
-        document.getElementById('main-content').style.display = 'block';
-        return false;
+        PluginAPI.showSnack({ msg: 'Cannot reach Home Assistant', type: 'ERROR' });
       }
     }
 
-    async function activateScene(type) {
+    // --- Scenes ---
+    async function doScene(type) {
       const scene = type === 'focus' ? config.focusScene : config.relaxScene;
-      if (!scene) {
-        PluginAPI.showSnack({ msg: `No ${type} scene configured in plugin settings`, type: 'WARN' });
-        return;
-      }
-      const result = await haApi('POST', 'services/scene/turn_on', { entity_id: scene });
-      if (result !== null) {
-        PluginAPI.showSnack({ msg: `${type === 'focus' ? 'Focus' : 'Relax'} scene activated!`, type: 'SUCCESS' });
-      } else {
-        PluginAPI.showSnack({ msg: 'Failed to activate scene', type: 'ERROR' });
-      }
+      if (!scene) { PluginAPI.showSnack({ msg: `No ${type} scene configured (Settings tab)`, type: 'WARN' }); return; }
+      const r = await haApi('POST', 'services/scene/turn_on', { entity_id: scene });
+      if (r !== null) PluginAPI.showSnack({ msg: `${type === 'focus' ? 'Focus' : 'Relax'} activated`, type: 'SUCCESS' });
+      else PluginAPI.showSnack({ msg: 'Failed', type: 'ERROR' });
     }
 
-    async function callCustomService() {
-      const input = document.getElementById('service-input').value.trim();
-      if (!input) return;
-
-      // Parse "domain.service / entity_id" format
-      const parts = input.split('/').map(s => s.trim());
-      const [domainService, entityId] = parts;
-      const [domain, service] = domainService.split('.');
-
-      if (!domain || !service) {
-        PluginAPI.showSnack({ msg: 'Format: domain.service / entity_id', type: 'WARN' });
-        return;
-      }
-
-      const data = entityId ? { entity_id: entityId } : {};
-      const result = await haApi('POST', `services/${domain}/${service}`, data);
-      if (result !== null) {
-        PluginAPI.showSnack({ msg: `Called ${domain}.${service}`, type: 'SUCCESS' });
-      } else {
-        PluginAPI.showSnack({ msg: 'Service call failed', type: 'ERROR' });
-      }
+    async function doService(service, entity) {
+      const [domain, svc] = service.split('.');
+      const data = entity ? { entity_id: entity } : {};
+      const r = await haApi('POST', `services/${domain}/${svc}`, data);
+      if (r !== null) PluginAPI.showSnack({ msg: `${service} called`, type: 'SUCCESS' });
     }
 
+    // --- Services Page ---
+    async function callService() {
+      const service = document.getElementById('svc-service').value.trim();
+      const entity = document.getElementById('svc-entity').value.trim();
+      const extraRaw = document.getElementById('svc-data').value.trim();
+      if (!service) return;
+      const [domain, svc] = service.split('.');
+      if (!domain || !svc) { PluginAPI.showSnack({ msg: 'Format: domain.service', type: 'WARN' }); return; }
+      let data = {};
+      if (entity) data.entity_id = entity;
+      if (extraRaw) { try { Object.assign(data, JSON.parse(extraRaw)); } catch(e) { PluginAPI.showSnack({msg:'Invalid JSON',type:'ERROR'}); return; } }
+      const r = await haApi('POST', `services/${domain}/${svc}`, data);
+      const entry = `${new Date().toLocaleTimeString()} - ${service}${entity ? ' ('+entity+')' : ''}: ${r !== null ? 'OK' : 'FAIL'}`;
+      svcHistory.unshift(entry);
+      if (svcHistory.length > 10) svcHistory.pop();
+      document.getElementById('svc-history').innerHTML = svcHistory.join('<br>');
+      if (r !== null) PluginAPI.showSnack({ msg: `${service} executed`, type: 'SUCCESS' });
+      else PluginAPI.showSnack({ msg: 'Service call failed', type: 'ERROR' });
+    }
+
+    // --- Sensors ---
     async function loadSensors() {
-      if (!config.showSensors) return;
-
-      const sensorIds = config.showSensors.split(',').map(s => s.trim()).filter(Boolean);
-      if (sensorIds.length === 0) return;
-
-      document.getElementById('sensors-section').style.display = 'block';
-      const container = document.getElementById('sensors-container');
-      container.innerHTML = '';
-
-      for (const entityId of sensorIds) {
-        const state = await haApi('GET', `states/${entityId}`);
-        const row = document.createElement('div');
-        row.className = 'sensor-row';
+      const grid = document.getElementById('sensor-grid');
+      const noSensors = document.getElementById('no-sensors');
+      if (!config.showSensors) { grid.innerHTML = ''; noSensors.style.display = 'block'; return; }
+      const ids = config.showSensors.split(',').map(s => s.trim()).filter(Boolean);
+      if (ids.length === 0) { grid.innerHTML = ''; noSensors.style.display = 'block'; return; }
+      noSensors.style.display = 'none';
+      grid.innerHTML = '';
+      for (const id of ids) {
+        const state = await haApi('GET', `states/${id}`);
+        const card = document.createElement('div');
+        card.className = 'sensor-card';
         if (state) {
-          const name = state.attributes.friendly_name || entityId;
-          const value = state.state + (state.attributes.unit_of_measurement ? ` ${state.attributes.unit_of_measurement}` : '');
-          row.innerHTML = `<span class="sensor-name">${name}</span><span class="sensor-value">${value}</span>`;
+          const name = state.attributes.friendly_name || id.split('.').pop();
+          const val = state.state + (state.attributes.unit_of_measurement ? ' ' + state.attributes.unit_of_measurement : '');
+          card.innerHTML = `<div class="label">${name}</div><div class="value">${val}</div>`;
         } else {
-          row.innerHTML = `<span class="sensor-name">${entityId}</span><span class="sensor-value">unavailable</span>`;
+          card.innerHTML = `<div class="label">${id}</div><div class="value">--</div>`;
         }
-        container.appendChild(row);
+        grid.appendChild(card);
       }
     }
 
-    function updateStatus() {
-      document.getElementById('webhook-status').textContent = config.webhookId ? 'Active' : 'Not set';
-      document.getElementById('auto-scene-status').textContent =
-        (config.focusScene || config.relaxScene) ? 'Enabled' : 'Disabled';
+    // --- Status ---
+    function updateStatusDisplay() {
+      document.getElementById('wh-status').textContent = config.webhookId ? 'Active' : 'Not set';
+      document.getElementById('as-status').textContent = (config.focusScene || config.relaxScene) ? 'Enabled' : 'Off';
     }
 
-    // Init
+    // --- Init ---
     async function init() {
       await loadConfig();
-      const connected = await checkConnection();
-      if (connected) {
-        await loadSensors();
-        updateStatus();
-      }
-    }
-
-    init();
-    // Refresh sensors every 30s
-    setInterval(async () => {
-      await loadConfig();
+      await checkConnection();
       await loadSensors();
-    }, 30000);
+      updateStatusDisplay();
+    }
+    init();
+    setInterval(loadSensors, 30000);
   </script>
 </body>
 </html>

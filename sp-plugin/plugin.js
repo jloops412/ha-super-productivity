@@ -1,28 +1,27 @@
 /**
- * Home Assistant Bridge v2.0 - Super Productivity Plugin
- *
- * Features:
- * - Control HA scenes/services from SP (focus mode, relax mode)
- * - Push instant task updates to HA via webhook
- * - Auto-activate focus scene when tracking starts
- * - Auto-activate relax scene when tracking stops
- * - Send daily summary to HA on day finish
+ * Home Assistant Bridge v2.1 - Super Productivity Plugin
+ * 
+ * Unified bridge: auto-scenes, webhook push, HA control.
+ * Config stored via PluginAPI.persistDataSynced().
  */
 
-let config = {
-  haUrl: '',
-  haToken: '',
-  webhookId: '',
-  focusScene: '',
-  relaxScene: '',
-  showSensors: '',
-};
+let config = {};
 
-// ---- HA API Helper ----
+async function loadConfig() {
+  try {
+    const raw = await PluginAPI.loadSyncedData('config');
+    if (raw) {
+      config = JSON.parse(raw);
+    }
+  } catch (e) {
+    config = {};
+  }
+  return config;
+}
 
 async function haApi(method, path, body = null) {
   if (!config.haUrl || !config.haToken) return null;
-  const url = `${config.haUrl}/api/${path}`;
+  const url = `${config.haUrl.replace(/\/$/, '')}/api/${path}`;
   const options = {
     method,
     headers: {
@@ -34,197 +33,77 @@ async function haApi(method, path, body = null) {
   try {
     const resp = await fetch(url, options);
     if (resp.ok) return await resp.json();
-    console.log(`[HA Bridge] API ${resp.status}: ${await resp.text()}`);
     return null;
   } catch (e) {
-    console.log(`[HA Bridge] API error: ${e.message}`);
     return null;
   }
-}
-
-async function haCallService(domain, service, data = {}) {
-  return haApi('POST', `services/${domain}/${service}`, data);
-}
-
-async function haGetState(entityId) {
-  return haApi('GET', `states/${entityId}`);
 }
 
 async function notifyWebhook(event, data = {}) {
   if (!config.webhookId || !config.haUrl) return;
   try {
-    await fetch(`${config.haUrl}/api/webhook/${config.webhookId}`, {
+    await fetch(`${config.haUrl.replace(/\/$/, '')}/api/webhook/${config.webhookId}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ event, ...data }),
+      body: JSON.stringify({ event, ...data, timestamp: Date.now() }),
     });
-  } catch (e) {
-    // Silent fail
-  }
+  } catch (e) { /* silent */ }
 }
 
-// ---- Scene Control ----
-
-async function activateFocusMode() {
-  if (!config.focusScene) return;
-  await haCallService('scene', 'turn_on', {
-    entity_id: config.focusScene,
-  });
-  console.log('[HA Bridge] Focus scene activated:', config.focusScene);
+async function activateScene(sceneName) {
+  if (!sceneName || !config.haToken) return;
+  await haApi('POST', 'services/scene/turn_on', { entity_id: sceneName });
 }
 
-async function activateRelaxMode() {
-  if (!config.relaxScene) return;
-  await haCallService('scene', 'turn_on', {
-    entity_id: config.relaxScene,
-  });
-  console.log('[HA Bridge] Relax scene activated:', config.relaxScene);
-}
+// --- Hooks ---
 
-// ---- Load Config ----
-
-async function loadConfig() {
-  try {
-    const cfg = await PluginAPI.getConfig();
-    if (cfg) {
-      config.haUrl = (cfg.haUrl || '').replace(/\/$/, ''); // strip trailing slash
-      config.haToken = cfg.haToken || '';
-      config.webhookId = cfg.webhookId || '';
-      config.focusScene = cfg.focusScene || '';
-      config.relaxScene = cfg.relaxScene || '';
-      config.showSensors = cfg.showSensors || '';
-    }
-  } catch (e) {
-    console.log('[HA Bridge] Config not set yet');
-  }
-}
-
-// ---- Hooks ----
-
-// When tracking starts -> activate focus scene + notify HA
 PluginAPI.registerHook('currentTaskChange', async (data) => {
-  await loadConfig(); // refresh config in case it changed
+  await loadConfig();
   if (data && data.currentTaskId) {
-    // Task started
-    await activateFocusMode();
+    if (config.focusScene) await activateScene(config.focusScene);
     await notifyWebhook('task_started', { taskId: data.currentTaskId });
   } else {
-    // Task stopped
-    await activateRelaxMode();
+    if (config.relaxScene) await activateScene(config.relaxScene);
     await notifyWebhook('task_stopped', {});
   }
 });
 
-// When a task is completed -> notify HA
 PluginAPI.registerHook('taskComplete', async (taskId) => {
+  await loadConfig();
   await notifyWebhook('task_completed', { taskId });
 });
 
-// When day finishes -> send summary to HA
 PluginAPI.registerHook('finishDay', async () => {
+  await loadConfig();
   const tasks = await PluginAPI.getTasks();
-  const doneTasks = tasks.filter(t => t.isDone);
-  const totalTimeSpent = tasks.reduce((sum, t) => sum + (t.timeSpent || 0), 0);
-
+  const done = tasks.filter(t => t.isDone);
+  const totalTime = tasks.reduce((s, t) => s + (t.timeSpent || 0), 0);
   await notifyWebhook('day_finished', {
-    totalTasks: tasks.length,
-    completedTasks: doneTasks.length,
-    totalTimeMs: totalTimeSpent,
-    totalTimeHours: Math.round(totalTimeSpent / 3600000 * 100) / 100,
+    completed: done.length,
+    total: tasks.length,
+    hoursWorked: Math.round(totalTime / 3600000 * 100) / 100,
   });
-
-  // Also fire an HA event for automation triggers
   if (config.haToken) {
     await haApi('POST', 'events/super_productivity_day_summary', {
-      completed: doneTasks.length,
+      completed: done.length,
       total: tasks.length,
-      hours_worked: Math.round(totalTimeSpent / 3600000 * 100) / 100,
+      hours_worked: Math.round(totalTime / 3600000 * 100) / 100,
     });
   }
 });
 
-// ---- UI Registration ----
+// --- UI: Side Panel Button ---
 
-// Header button: Quick toggle focus mode
-PluginAPI.registerHeaderButton({
-  label: 'HA Focus',
-  icon: 'lightbulb',
-  onClick: async () => {
-    await loadConfig();
-    if (!config.haToken) {
-      PluginAPI.showSnack({
-        msg: 'HA Bridge: Configure your HA URL and token in plugin settings first.',
-        type: 'WARN',
-      });
-      return;
-    }
-    if (config.focusScene) {
-      await activateFocusMode();
-      PluginAPI.showSnack({ msg: 'Focus scene activated!', type: 'SUCCESS' });
-    } else {
-      PluginAPI.showSnack({
-        msg: 'No focus scene configured. Set it in plugin settings.',
-        type: 'WARN',
-      });
-    }
-  },
-});
-
-// Menu entries for scene control
-PluginAPI.registerMenuEntry({
-  label: 'HA: Activate Focus Mode',
-  icon: 'lightbulb',
-  onClick: async () => {
-    await loadConfig();
-    await activateFocusMode();
-    PluginAPI.showSnack({ msg: 'Focus mode activated', type: 'SUCCESS' });
-  },
-});
-
-PluginAPI.registerMenuEntry({
-  label: 'HA: Activate Relax Mode',
-  icon: 'self_improvement',
-  onClick: async () => {
-    await loadConfig();
-    await activateRelaxMode();
-    PluginAPI.showSnack({ msg: 'Relax mode activated', type: 'SUCCESS' });
-  },
-});
-
-PluginAPI.registerMenuEntry({
-  label: 'HA: Connection Status',
+PluginAPI.registerSidePanelButton({
+  label: 'Home Assistant',
   icon: 'home',
-  onClick: async () => {
-    await loadConfig();
-    if (!config.haToken) {
-      PluginAPI.showSnack({ msg: 'Not configured. Add HA URL & token in plugin settings.', type: 'WARN' });
-      return;
-    }
-    const result = await haApi('GET', 'config');
-    if (result) {
-      PluginAPI.showSnack({
-        msg: `Connected to HA ${result.version} (${result.location_name})`,
-        type: 'SUCCESS',
-      });
-    } else {
-      PluginAPI.showSnack({ msg: 'Cannot reach Home Assistant', type: 'ERROR' });
-    }
+  onClick: () => {
+    PluginAPI.showIndexHtmlAsView();
   },
 });
 
-// Keyboard shortcut for focus toggle
-PluginAPI.registerShortcut({
-  keys: 'ctrl+shift+f',
-  label: 'Toggle HA Focus Mode',
-  action: async () => {
-    await loadConfig();
-    await activateFocusMode();
-    PluginAPI.showSnack({ msg: 'Focus mode toggled', type: 'SUCCESS' });
-  },
-});
-
-// ---- Init ----
+// --- Init ---
 loadConfig().then(() => {
-  const status = config.haToken ? 'configured' : 'not configured';
-  console.log(`[HA Bridge v2.0] Loaded. HA: ${status}`);
+  const s = config.haToken ? 'configured' : 'not configured';
+  console.log(`[HA Bridge v2.1] Loaded. Status: ${s}`);
 });
