@@ -125,85 +125,76 @@ function stopTimerChecks() {
 }
 
 // --- Hooks ---
-PluginAPI.registerHook('currentTaskChange', async (data) => {
+// CRITICAL: SP has a strict timeout on hook handlers (~2s).
+// Hooks must return immediately. All heavy work is deferred via setTimeout.
+
+PluginAPI.registerHook('currentTaskChange', (data) => {
+  setTimeout(() => handleTaskChange(data), 10);
+});
+
+PluginAPI.registerHook('taskComplete', (taskId) => {
+  setTimeout(() => handleTaskComplete(taskId), 10);
+});
+
+PluginAPI.registerHook('finishDay', () => {
+  setTimeout(() => handleFinishDay(), 10);
+});
+
+async function handleTaskChange(data) {
   await loadConfig();
-  
-  // Debug: log exactly what SP sends us
-  console.log('[HA Bridge] currentTaskChange raw data:', JSON.stringify(data));
-  
-  // SP may pass the task object directly, or {currentTaskId, task}, or just the taskId as a string
+  console.log('[HA Bridge] currentTaskChange:', JSON.stringify(data));
+
   let taskId = null;
-  let task = {};
-  
-  if (typeof data === 'string') {
-    // data is just the task ID
+  if (data === null || data === undefined) {
+    taskId = null;
+  } else if (typeof data === 'string') {
     taskId = data;
-  } else if (data && typeof data === 'object') {
-    // Try various formats SP might use
+  } else if (typeof data === 'object') {
     taskId = data.currentTaskId || data.id || data.taskId || null;
-    task = data.task || data || {};
+    if (!taskId && data.current) taskId = data.current.id || data.current;
   }
-  
-  // If we got a taskId, look up the full task
-  if (taskId && !task.title) {
-    try {
-      const tasks = await PluginAPI.getTasks();
-      task = tasks.find(t => t.id === taskId) || {};
-    } catch(e) {}
-  }
-  
+
   if (taskId) {
-    // Task started
-    console.log('[HA Bridge] Task STARTED:', taskId, task.title || '');
-    await evaluateRules('task_start', {
-      taskId: taskId,
-      title: task.title || '',
-      projectId: task.projectId || null,
-      tagIds: task.tagIds || [],
-    });
+    console.log('[HA Bridge] -> STARTED:', taskId);
+    let task = {};
+    try { const tasks = await PluginAPI.getTasks(); task = tasks.find(t => t.id === taskId) || {}; } catch(e) {}
+    await evaluateRules('task_start', { taskId, title: task.title || '', projectId: task.projectId || null, tagIds: task.tagIds || [] });
     startTimerChecks();
     await notifyWebhook('task_started', { taskId, title: task.title });
   } else {
-    // Task stopped (data is null/undefined or has no task ID)
-    console.log('[HA Bridge] Task STOPPED');
+    console.log('[HA Bridge] -> STOPPED');
     stopTimerChecks();
     await evaluateRules('task_stop', {});
     await notifyWebhook('task_stopped', {});
   }
-});
+}
 
-PluginAPI.registerHook('taskComplete', async (taskId) => {
+async function handleTaskComplete(taskId) {
   await loadConfig();
-  const tasks = await PluginAPI.getTasks();
-  const task = tasks.find(t => t.id === taskId) || {};
-  await evaluateRules('task_complete', {
-    taskId,
-    title: task.title,
-    projectId: task.projectId,
-    tagIds: task.tagIds || [],
-  });
+  let task = {};
+  try { const tasks = await PluginAPI.getTasks(); task = tasks.find(t => t.id === taskId) || {}; } catch(e) {}
+  await evaluateRules('task_complete', { taskId, title: task.title || '', projectId: task.projectId || null, tagIds: task.tagIds || [] });
   await notifyWebhook('task_completed', { taskId, title: task.title });
+  try {
+    const tasks = await PluginAPI.getTasks();
+    const todayTasks = tasks.filter(t => t.tagIds && t.tagIds.includes('TODAY'));
+    if (todayTasks.length > 0 && todayTasks.every(t => t.isDone)) {
+      await evaluateRules('all_done', {});
+      await notifyWebhook('all_today_done', { count: todayTasks.length });
+    }
+  } catch(e) {}
+}
 
-  // Check if all today's tasks done
-  const todayTasks = tasks.filter(t => t.tagIds && t.tagIds.includes('TODAY'));
-  const allDone = todayTasks.length > 0 && todayTasks.every(t => t.isDone);
-  if (allDone) {
-    await evaluateRules('all_done', {});
-    await notifyWebhook('all_today_done', { count: todayTasks.length });
-  }
-});
-
-PluginAPI.registerHook('finishDay', async () => {
+async function handleFinishDay() {
   await loadConfig();
   await evaluateRules('day_end', {});
-  const tasks = await PluginAPI.getTasks();
-  const done = tasks.filter(t => t.isDone);
-  const totalTime = tasks.reduce((s, t) => s + (t.timeSpent || 0), 0);
-  await notifyWebhook('day_finished', {
-    completed: done.length, total: tasks.length,
-    hoursWorked: Math.round(totalTime / 3600000 * 100) / 100,
-  });
-});
+  try {
+    const tasks = await PluginAPI.getTasks();
+    const done = tasks.filter(t => t.isDone);
+    const totalTime = tasks.reduce((s, t) => s + (t.timeSpent || 0), 0);
+    await notifyWebhook('day_finished', { completed: done.length, total: tasks.length, hoursWorked: Math.round(totalTime / 3600000 * 100) / 100 });
+  } catch(e) {}
+}
 
 // --- UI ---
 PluginAPI.registerSidePanelButton({
