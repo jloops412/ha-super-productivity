@@ -153,49 +153,36 @@ if(tab.dataset.page==='sensors')loadSensors();
 
 function showPage(name){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById('page-'+name).classList.add('active');if(name==='rules'){document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));document.querySelector('[data-page=rules]').classList.add('active');}}
 
-// Config - communicates with plugin.js host context for persistence
+// Config - persist via PluginAPI from iframe
 async function loadConfig(){
-  // Try direct PluginAPI first (works in some SP versions)
   try {
     const raw = await PluginAPI.loadSyncedData();
+    console.log('[HA UI] loadSyncedData returned:', typeof raw, raw ? raw.length + ' chars' : 'null/empty');
     if (raw && raw.length > 2) {
       config = JSON.parse(raw);
-      console.log('[HA Bridge UI] Config loaded via PluginAPI:', config.rules?.length, 'rules');
-      if(!config.rules) config.rules = [];
-      populateSettings();
-      return;
+      console.log('[HA UI] Config parsed OK:', config.haUrl ? 'has URL' : 'no URL', config.rules?.length || 0, 'rules');
     }
-  } catch(e) { console.log('[HA Bridge UI] PluginAPI load failed, trying postMessage'); }
-  
-  // Fallback: request from plugin.js via postMessage
-  return new Promise((resolve) => {
-    const handler = (event) => {
-      if (event.data?.type === 'ha-bridge-config') {
-        window.removeEventListener('message', handler);
-        config = event.data.config || { haUrl:'', haToken:'', webhookId:'', rules:[], showSensors:'' };
-        if(!config.rules) config.rules = [];
-        populateSettings();
-        resolve();
-      }
-    };
-    window.addEventListener('message', handler);
-    window.parent.postMessage({ type: 'ha-bridge-get-config' }, '*');
-    // Timeout fallback
-    setTimeout(() => { window.removeEventListener('message', handler); resolve(); }, 2000);
-  });
+  } catch(e) { console.log('[HA UI] Load error:', e); }
+  if(!config.rules) config.rules = [];
+  populateSettings();
 }
 
 async function saveConfig(){
   const data = JSON.stringify(config);
-  // Save via both methods to ensure persistence
+  console.log('[HA UI] Saving config (' + data.length + ' chars)...');
   try {
     await PluginAPI.persistDataSynced(data);
-    console.log('[HA Bridge UI] Config saved via PluginAPI (' + data.length + ' bytes)');
+    console.log('[HA UI] persistDataSynced called successfully');
+    // Verify it saved by reading back
+    const verify = await PluginAPI.loadSyncedData();
+    if (verify && verify.length > 2) {
+      console.log('[HA UI] VERIFIED: config persisted (' + verify.length + ' chars)');
+    } else {
+      console.log('[HA UI] WARNING: readback returned empty - save may have failed');
+    }
   } catch(e) {
-    console.log('[HA Bridge UI] PluginAPI save failed:', e.message);
+    console.log('[HA UI] Save error:', e);
   }
-  // Also notify plugin.js
-  window.parent.postMessage({ type: 'ha-bridge-save-config', config: config }, '*');
 }
 function populateSettings(){
 document.getElementById('cfg-url').value=config.haUrl||'';
