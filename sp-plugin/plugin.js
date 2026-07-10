@@ -197,15 +197,11 @@ async function handleFinishDay() {
 }
 
 // --- UI Registration ---
-// Only registerSidePanelButton - NO header buttons (keeps top bar clean)
-// The side panel button opens our full view
-PluginAPI.registerSidePanelButton({
-  label: 'Home Assistant',
-  icon: 'home',
-  onClick: () => { PluginAPI.showIndexHtmlAsView(); },
-});
+// With iFrame:true and isSkipMenuEntry:false in manifest,
+// SP automatically adds "Home Assistant Bridge" to the left sidebar menu.
+// No manual registration needed.
 
 // --- Init ---
 loadConfig().then(() => {
-  console.log(`[HA Bridge v3.1] Loaded. ${config.rules.length} rules configured.`);
+  console.log(`[HA Bridge v3.2] Loaded. ${config.rules.length} rules configured.`);
 });
