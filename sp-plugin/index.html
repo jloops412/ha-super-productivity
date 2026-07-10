@@ -85,9 +85,9 @@
           <option value="notify">Send Notification</option>
         </select>
       </div>
-      <div class="field" id="re-scene-field"><label>Scene Entity ID</label><input id="re-scene" placeholder="scene.focus_mode"></div>
+      <div class="field" id="re-scene-field"><label>Scene</label><select id="re-scene"></select></div>
       <div class="field" id="re-service-field" style="display:none"><label>Service</label><input id="re-service" placeholder="light.turn_on"></div>
-      <div class="field" id="re-entity-field" style="display:none"><label>Entity ID</label><input id="re-entity" placeholder="light.desk_lamp"></div>
+      <div class="field" id="re-entity-field" style="display:none"><label>Target Entity</label><select id="re-entity"></select></div>
       <div class="field" id="re-notify-field" style="display:none"><label>Message</label><input id="re-message" placeholder="Time for a break!"></div>
     </div>
     <button class="btn success" onclick="saveRule()">Save Rule</button>
@@ -105,8 +105,8 @@
     <div class="card">
       <div class="card-title">Call HA Service</div>
       <div class="field"><label>Service</label><input id="svc-service" placeholder="light.turn_on"></div>
-      <div class="field"><label>Entity ID</label><input id="svc-entity" placeholder="light.office_lamp"></div>
-      <div class="field"><label>Data (JSON)</label><input id="svc-data" placeholder='{"brightness": 200}'></div>
+      <div class="field"><label>Entity</label><select id="svc-entity-select"><option value="">-- Select entity --</option></select></div>
+      <div class="field"><label>Data (JSON, optional)</label><input id="svc-data" placeholder='{"brightness": 200}'></div>
       <button class="btn success" onclick="callService()">Execute</button>
     </div>
     <div class="card"><div class="card-title">History</div><div id="svc-history" style="font-size:0.8em;opacity:0.5">No calls yet</div></div>
@@ -134,6 +134,7 @@
     let projects = [];
     let tags = [];
     let svcHist = [];
+    let haEntities = { scenes:[], lights:[], switches:[], scripts:[], sensors:[], all:[] };
 
     // --- Tabs ---
     document.querySelectorAll('.tab').forEach(tab => {
@@ -165,7 +166,7 @@
       config.showSensors = document.getElementById('cfg-sensors').value.trim();
       await saveConfig();
       PluginAPI.showSnack({msg:'Settings saved!',type:'SUCCESS'});
-      checkConn(); loadSensors();
+      checkConn(); loadSensors(); fetchHAEntities();
     }
 
     // --- HA API ---
@@ -174,6 +175,52 @@
       const opts={method,headers:{'Authorization':`Bearer ${config.haToken}`,'Content-Type':'application/json'}};
       if(body) opts.body=JSON.stringify(body);
       try{const r=await fetch(`${config.haUrl}/api/${path}`,opts); return r.ok?await r.json():null;}catch(e){return null;}
+    }
+
+    async function fetchHAEntities() {
+      if (!config.haUrl || !config.haToken) return;
+      const states = await haApi('GET', 'states');
+      if (!states) return;
+      haEntities.all = states;
+      haEntities.scenes = states.filter(s => s.entity_id.startsWith('scene.'));
+      haEntities.lights = states.filter(s => s.entity_id.startsWith('light.'));
+      haEntities.switches = states.filter(s => s.entity_id.startsWith('switch.'));
+      haEntities.scripts = states.filter(s => s.entity_id.startsWith('script.'));
+      haEntities.sensors = states.filter(s => s.entity_id.startsWith('sensor.') || s.entity_id.startsWith('binary_sensor.'));
+      // Populate the services page entity dropdown
+      buildEntitySelect('svc-entity-select', ['lights','switches','scripts','scenes'], '');
+      console.log('[HA Bridge] Loaded', states.length, 'entities from HA');
+    }
+
+    function entityName(e) { return e.attributes.friendly_name || e.entity_id.split('.').pop().replace(/_/g,' '); }
+
+    function buildEntitySelect(id, domains, currentValue) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const entities = domains.flatMap(d => haEntities[d] || []);
+      if (entities.length === 0) {
+        // Fallback to text input behavior - keep existing value
+        el.innerHTML = '<option value="">-- Connect to HA first --</option>';
+        if (currentValue) el.innerHTML += '<option value="' + currentValue + '" selected>' + currentValue + '</option>';
+        return;
+      }
+      let html = '<option value="">-- Select --</option>';
+      const grouped = {};
+      entities.forEach(e => {
+        const domain = e.entity_id.split('.')[0];
+        if (!grouped[domain]) grouped[domain] = [];
+        grouped[domain].push(e);
+      });
+      for (const [domain, ents] of Object.entries(grouped).sort()) {
+        html += '<optgroup label="' + domain + '">';
+        ents.sort((a,b) => entityName(a).localeCompare(entityName(b)));
+        for (const e of ents) {
+          const sel = e.entity_id === currentValue ? ' selected' : '';
+          html += '<option value="' + e.entity_id + '"' + sel + '>' + entityName(e) + ' (' + e.entity_id + ')</option>';
+        }
+        html += '</optgroup>';
+      }
+      el.innerHTML = html;
     }
 
     async function checkConn() {
@@ -230,12 +277,12 @@
       document.getElementById('re-tag').value = '';
       document.getElementById('re-title').value = '';
       document.getElementById('re-action-type').value = 'scene';
-      document.getElementById('re-scene').value = '';
       document.getElementById('re-service').value = '';
-      document.getElementById('re-entity').value = '';
       document.getElementById('re-message').value = '';
       toggleActionFields(); toggleTimerField();
       populateDropdowns();
+      buildEntitySelect('re-scene', ['scenes'], '');
+      buildEntitySelect('re-entity', ['lights','switches','scripts','scenes'], '');
       showPage('editor');
     }
 
@@ -249,12 +296,12 @@
       document.getElementById('re-tag').value = r.conditions?.tagId || '';
       document.getElementById('re-title').value = r.conditions?.titleContains || '';
       document.getElementById('re-action-type').value = r.action?.type || 'scene';
-      document.getElementById('re-scene').value = r.action?.entity || '';
       document.getElementById('re-service').value = r.action?.service || '';
-      document.getElementById('re-entity').value = r.action?.entity || '';
       document.getElementById('re-message').value = r.action?.message || '';
       toggleActionFields(); toggleTimerField();
       populateDropdowns();
+      buildEntitySelect('re-scene', ['scenes'], r.action?.entity || '');
+      buildEntitySelect('re-entity', ['lights','switches','scripts','scenes'], r.action?.entity || '');
       showPage('editor');
     }
 
@@ -330,7 +377,7 @@
 
     // --- Services ---
     async function callService(){
-      const svc=document.getElementById('svc-service').value.trim(),ent=document.getElementById('svc-entity').value.trim(),extra=document.getElementById('svc-data').value.trim();
+      const svc=document.getElementById('svc-service').value.trim(),ent=document.getElementById('svc-entity-select').value,extra=document.getElementById('svc-data').value.trim();
       if(!svc)return;const[domain,s]=svc.split('.');if(!domain||!s){PluginAPI.showSnack({msg:'Format: domain.service',type:'WARN'});return;}
       let data={};if(ent)data.entity_id=ent;if(extra)try{Object.assign(data,JSON.parse(extra));}catch(e){PluginAPI.showSnack({msg:'Invalid JSON',type:'ERROR'});return;}
       const r=await haApi('POST',`services/${domain}/${s}`,data);
@@ -341,7 +388,7 @@
     }
 
     // --- Init ---
-    async function init(){await loadConfig();await checkConn();await loadProjectsAndTags();renderRules();loadSensors();}
+    async function init(){await loadConfig();await checkConn();await fetchHAEntities();await loadProjectsAndTags();renderRules();loadSensors();}
     init();
     setInterval(loadSensors,30000);
   </script>
