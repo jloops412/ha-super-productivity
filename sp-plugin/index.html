@@ -4,9 +4,9 @@
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>HA Bridge</title>
 <style>
-:root{--bg:#1e1e2e;--card:rgba(255,255,255,0.04);--border:rgba(255,255,255,0.08);--text:#e0e0e0;--dim:rgba(255,255,255,0.45);--accent:#42a5f5;--success:#66bb6a;--warn:#ffa726;--err:#ef5350;--r:10px}
-*{box-sizing:border-box;margin:0;padding:0}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:var(--text);background:transparent;font-size:13px;line-height:1.5}
-.tabs{display:flex;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg);z-index:10}
+:root{--bg:var(--background-color,#1e1e2e);--card:var(--card-background-color,rgba(127,127,127,0.08));--border:var(--border-color,rgba(127,127,127,0.2));--text:var(--primary-text-color,#e0e0e0);--dim:var(--secondary-text-color,rgba(127,127,127,0.7));--accent:var(--accent-color,#42a5f5);--success:#66bb6a;--warn:#ffa726;--err:#ef5350;--r:10px}
+*{box-sizing:border-box;margin:0;padding:0}body{font-family:var(--font-family,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif);color:var(--text);background:var(--bg);font-size:13px;line-height:1.5}
+.tabs{display:flex;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg);z-index:10;backdrop-filter:blur(8px)}
 .tab{flex:1;padding:10px 4px;text-align:center;font-size:.75em;font-weight:500;opacity:.5;cursor:pointer;border-bottom:2px solid transparent;transition:all .2s}
 .tab:hover{opacity:.8}.tab.active{opacity:1;border-bottom-color:var(--accent);color:var(--accent)}
 .page{display:none;padding:14px}.page.active{display:block}
@@ -16,13 +16,13 @@
 .btn{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:9px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:.82em;cursor:pointer;transition:all .15s;margin-bottom:5px}
 .btn:hover{background:rgba(255,255,255,.08)}.btn.accent{border-color:rgba(66,165,245,.4);color:var(--accent)}.btn.success{border-color:rgba(102,187,106,.4);color:var(--success)}.btn.warn{border-color:rgba(255,167,38,.4);color:var(--warn)}.btn.err{border-color:rgba(239,83,80,.4);color:var(--err)}.btn.sm{width:auto;padding:5px 10px;font-size:.75em;display:inline-flex}
 .field{margin-bottom:10px}.field label{display:block;font-size:.78em;opacity:.6;margin-bottom:3px}
-.field input,.field select,.field textarea{width:100%;padding:7px 9px;border-radius:6px;border:1px solid var(--border);background:rgba(0,0,0,.3);color:var(--text);font-size:.88em}
+.field input,.field select,.field textarea{width:100%;padding:7px 9px;border-radius:6px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:.88em}
 .field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--accent)}.field .hint{font-size:.72em;opacity:.35;margin-top:2px}
 .badge{display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:8px;font-size:.72em;font-weight:500}
 .badge.ok{background:rgba(76,175,80,.15);color:var(--success)}.badge.err{background:rgba(244,67,54,.15);color:var(--err)}
 .dot{width:6px;height:6px;border-radius:50%}.dot.ok{background:var(--success);animation:pulse 2s infinite}.dot.err{background:var(--err)}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
-.header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px}.header h1{font-size:1em;font-weight:600}
+.header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--bg)}.header h1{font-size:1em;font-weight:600}
 .rule-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:10px;margin-bottom:8px}
 .rule-card .rule-name{font-weight:600;font-size:.9em}.rule-card .rule-desc{font-size:.75em;opacity:.5;margin-top:2px}
 .rule-card .rule-actions{display:flex;gap:4px;margin-top:6px}
