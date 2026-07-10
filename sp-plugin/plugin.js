@@ -46,6 +46,12 @@ async function executeAction(action) {
       const data = action.entity ? { entity_id: action.entity, ...(action.data || {}) } : (action.data || {});
       if (domain && svc) await haApi('POST', `services/${domain}/${svc}`, data);
       break;
+    case 'automation':
+      await haApi('POST', 'services/automation/trigger', { entity_id: action.entity });
+      break;
+    case 'script':
+      await haApi('POST', 'services/script/turn_on', { entity_id: action.entity });
+      break;
     case 'notify':
       await haApi('POST', 'services/notify/mobile_app_jphone', { 
         title: action.title || 'Super Productivity',

@@ -70,6 +70,8 @@
           <option value="all_done">All Today's Tasks Done</option>
           <option value="timer">Timer (after X minutes of tracking)</option>
           <option value="day_end">Day Finished</option>
+          <option value="task_created">Task Created</option>
+          <option value="idle">Idle (no tracking for X minutes)</option>
         </select>
       </div>
       <div class="field" id="re-timer-field" style="display:none"><label>After (minutes)</label><input id="re-minutes" type="number" placeholder="25"></div>
@@ -82,12 +84,16 @@
         <select id="re-action-type" onchange="toggleActionFields()">
           <option value="scene">Activate Scene</option>
           <option value="service">Call Service</option>
+          <option value="automation">Trigger Automation</option>
+          <option value="script">Run Script</option>
           <option value="notify">Send Notification</option>
         </select>
       </div>
       <div class="field" id="re-scene-field"><label>Scene</label><select id="re-scene"></select></div>
-      <div class="field" id="re-service-field" style="display:none"><label>Service</label><input id="re-service" placeholder="light.turn_on"></div>
+      <div class="field" id="re-service-field" style="display:none"><label>Service (domain.action)</label><input id="re-service" placeholder="light.turn_on"></div>
       <div class="field" id="re-entity-field" style="display:none"><label>Target Entity</label><select id="re-entity"></select></div>
+      <div class="field" id="re-automation-field" style="display:none"><label>Automation</label><select id="re-automation"></select></div>
+      <div class="field" id="re-script-field" style="display:none"><label>Script</label><select id="re-script"></select></div>
       <div class="field" id="re-notify-field" style="display:none"><label>Message</label><input id="re-message" placeholder="Time for a break!"></div>
     </div>
     <button class="btn success" onclick="saveRule()">Save Rule</button>
@@ -121,8 +127,10 @@
       <div class="field"><label>Webhook ID</label><input id="cfg-webhook" placeholder="super_productivity_01KX..."><div class="hint">For instant sync to HA</div></div>
     </div>
     <div class="card">
-      <div class="card-title">Sensors (comma-separated entity IDs)</div>
-      <div class="field"><input id="cfg-sensors" placeholder="sensor.temperature, binary_sensor.motion"></div>
+      <div class="card-title">Sensors to Display</div>
+      <div class="field"><select id="cfg-sensor-picker" onchange="addSensorFromPicker()"><option value="">-- Add a sensor --</option></select></div>
+      <div id="cfg-sensor-list" style="font-size:0.85em;"></div>
+      <input type="hidden" id="cfg-sensors">
     </div>
     <button class="btn success" onclick="saveSettings()">Save Settings</button>
     <button class="btn accent" onclick="testConn()">Test Connection</button>
@@ -158,12 +166,56 @@
       document.getElementById('cfg-token').value = config.haToken || '';
       document.getElementById('cfg-webhook').value = config.webhookId || '';
       document.getElementById('cfg-sensors').value = config.showSensors || '';
+      renderSensorList();
+      populateSensorPicker();
+    }
+
+    function populateSensorPicker() {
+      const el = document.getElementById('cfg-sensor-picker');
+      const sensors = haEntities.sensors || [];
+      if (sensors.length === 0) { el.innerHTML = '<option value="">-- Connect to HA first --</option>'; return; }
+      let html = '<option value="">-- Add a sensor --</option>';
+      sensors.sort((a,b) => entityName(a).localeCompare(entityName(b)));
+      for (const s of sensors) {
+        html += '<option value="' + s.entity_id + '">' + entityName(s) + ' (' + s.entity_id + ')</option>';
+      }
+      el.innerHTML = html;
+    }
+
+    function addSensorFromPicker() {
+      const picker = document.getElementById('cfg-sensor-picker');
+      const val = picker.value;
+      if (!val) return;
+      const current = (config.showSensors || '').split(',').map(s=>s.trim()).filter(Boolean);
+      if (!current.includes(val)) {
+        current.push(val);
+        config.showSensors = current.join(', ');
+        document.getElementById('cfg-sensors').value = config.showSensors;
+        renderSensorList();
+      }
+      picker.value = '';
+    }
+
+    function removeSensor(entityId) {
+      const current = (config.showSensors || '').split(',').map(s=>s.trim()).filter(Boolean);
+      config.showSensors = current.filter(s => s !== entityId).join(', ');
+      document.getElementById('cfg-sensors').value = config.showSensors;
+      renderSensorList();
+    }
+
+    function renderSensorList() {
+      const container = document.getElementById('cfg-sensor-list');
+      const sensors = (config.showSensors || '').split(',').map(s=>s.trim()).filter(Boolean);
+      if (sensors.length === 0) { container.innerHTML = '<div style="opacity:0.4;padding:8px">No sensors added</div>'; return; }
+      container.innerHTML = sensors.map(s => 
+        '<div class="row"><span class="row-label">' + s + '</span><button class="btn sm err" onclick="removeSensor(\'' + s + '\')">x</button></div>'
+      ).join('');
     }
     async function saveSettings() {
       config.haUrl = document.getElementById('cfg-url').value.trim().replace(/\/$/,'');
       config.haToken = document.getElementById('cfg-token').value.trim();
       config.webhookId = document.getElementById('cfg-webhook').value.trim();
-      config.showSensors = document.getElementById('cfg-sensors').value.trim();
+      // showSensors is already updated by the picker functions
       await saveConfig();
       PluginAPI.showSnack({msg:'Settings saved!',type:'SUCCESS'});
       checkConn(); loadSensors(); fetchHAEntities();
@@ -186,10 +238,39 @@
       haEntities.lights = states.filter(s => s.entity_id.startsWith('light.'));
       haEntities.switches = states.filter(s => s.entity_id.startsWith('switch.'));
       haEntities.scripts = states.filter(s => s.entity_id.startsWith('script.'));
+      haEntities.automations = states.filter(s => s.entity_id.startsWith('automation.'));
       haEntities.sensors = states.filter(s => s.entity_id.startsWith('sensor.') || s.entity_id.startsWith('binary_sensor.'));
       // Populate the services page entity dropdown
       buildEntitySelect('svc-entity-select', ['lights','switches','scripts','scenes'], '');
       console.log('[HA Bridge] Loaded', states.length, 'entities from HA');
+    }
+
+    function buildAutomationSelect(id, currentValue) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const autos = haEntities.automations || [];
+      if (autos.length === 0) { el.innerHTML = '<option value="">-- No automations found --</option>'; return; }
+      let html = '<option value="">-- Select automation --</option>';
+      autos.sort((a,b) => entityName(a).localeCompare(entityName(b)));
+      for (const a of autos) {
+        const sel = a.entity_id === currentValue ? ' selected' : '';
+        html += '<option value="' + a.entity_id + '"' + sel + '>' + entityName(a) + '</option>';
+      }
+      el.innerHTML = html;
+    }
+
+    function buildScriptSelect(id, currentValue) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const scr = haEntities.scripts || [];
+      if (scr.length === 0) { el.innerHTML = '<option value="">-- No scripts found --</option>'; return; }
+      let html = '<option value="">-- Select script --</option>';
+      scr.sort((a,b) => entityName(a).localeCompare(entityName(b)));
+      for (const s of scr) {
+        const sel = s.entity_id === currentValue ? ' selected' : '';
+        html += '<option value="' + s.entity_id + '"' + sel + '>' + entityName(s) + '</option>';
+      }
+      el.innerHTML = html;
     }
 
     function entityName(e) { return e.attributes.friendly_name || e.entity_id.split('.').pop().replace(/_/g,' '); }
@@ -283,6 +364,8 @@
       populateDropdowns();
       buildEntitySelect('re-scene', ['scenes'], '');
       buildEntitySelect('re-entity', ['lights','switches','scripts','scenes'], '');
+      buildAutomationSelect('re-automation', '');
+      buildScriptSelect('re-script', '');
       showPage('editor');
     }
 
@@ -302,6 +385,8 @@
       populateDropdowns();
       buildEntitySelect('re-scene', ['scenes'], r.action?.entity || '');
       buildEntitySelect('re-entity', ['lights','switches','scripts','scenes'], r.action?.entity || '');
+      buildAutomationSelect('re-automation', r.action?.entity || '');
+      buildScriptSelect('re-script', r.action?.entity || '');
       showPage('editor');
     }
 
@@ -325,8 +410,10 @@
 
       const actionType = document.getElementById('re-action-type').value;
       rule.action.type = actionType;
-      if (actionType === 'scene') rule.action.entity = document.getElementById('re-scene').value.trim();
-      else if (actionType === 'service') { rule.action.service = document.getElementById('re-service').value.trim(); rule.action.entity = document.getElementById('re-entity').value.trim(); }
+      if (actionType === 'scene') rule.action.entity = document.getElementById('re-scene').value || '';
+      else if (actionType === 'service') { rule.action.service = document.getElementById('re-service').value.trim(); rule.action.entity = document.getElementById('re-entity').value || ''; }
+      else if (actionType === 'automation') rule.action.entity = document.getElementById('re-automation').value || '';
+      else if (actionType === 'script') rule.action.entity = document.getElementById('re-script').value || '';
       else if (actionType === 'notify') rule.action.message = document.getElementById('re-message').value.trim();
 
       if (editingRuleIdx >= 0) config.rules[editingRuleIdx] = rule;
@@ -351,11 +438,13 @@
       document.getElementById('re-scene-field').style.display = t==='scene'?'':'none';
       document.getElementById('re-service-field').style.display = t==='service'?'':'none';
       document.getElementById('re-entity-field').style.display = t==='service'?'':'none';
+      document.getElementById('re-automation-field').style.display = t==='automation'?'':'none';
+      document.getElementById('re-script-field').style.display = t==='script'?'':'none';
       document.getElementById('re-notify-field').style.display = t==='notify'?'':'none';
     }
     function toggleTimerField() {
       const t = document.getElementById('re-trigger').value;
-      document.getElementById('re-timer-field').style.display = t==='timer'?'':'none';
+      document.getElementById('re-timer-field').style.display = (t==='timer'||t==='idle')?'':'none';
     }
     document.getElementById('re-trigger').addEventListener('change', toggleTimerField);
 
