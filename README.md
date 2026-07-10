@@ -1,303 +1,233 @@
-# Super Productivity Integration for Home Assistant
+# Super Productivity + Home Assistant Bridge
 
-A custom Home Assistant integration for [Super Productivity](https://super-productivity.com/) - an advanced todo list app with timeboxing and time tracking capabilities.
+A **bidirectional bridge** between [Super Productivity](https://super-productivity.com/) and [Home Assistant](https://www.home-assistant.io/) — combining the best task/time management app with the best smart home platform.
 
-This integration connects to Super Productivity's **Local REST API** (available in the Electron desktop app) to give you full visibility and control over your tasks, time tracking, and projects from within Home Assistant.
+**Two components, one system:**
+- **Home Assistant Integration** — exposes your SP tasks, tracking, and projects as HA entities with full dashboard control
+- **Super Productivity Plugin** — a rules-based automation engine that lets SP control your smart home (lights, scenes, media, notifications) based on your work
 
-## Prerequisites
+## Why?
 
-- **Super Productivity desktop app** (Electron version) running on your network
-- **Local REST API enabled**: In SP, go to Settings > Misc > Enable local REST API
-- The API runs on port `3876` (localhost only by default)
-- **HA and SP must be on the same machine OR the same local network**
+Your productivity and your environment are connected. This bridge lets you:
 
-### Network Setup
-
-| Scenario | Configuration |
-|----------|--------------|
-| SP and HA on the **same machine** | Host: `127.0.0.1`, Port: `3876` |
-| SP and HA on **different machines, same LAN** | Host: SP machine's LAN IP, Port: `3876` + run `sp_proxy.py` on the SP machine |
-| Accessing HA via **Nabu Casa / cloud URL** | Use your **local HA URL** (e.g., `http://192.168.x.x:8123`) to add the integration, not the cloud URL |
-
-> **Important:** If you're adding the integration via Nabu Casa's cloud URL (e.g., `https://xxx.ui.nabu.casa`), the connection test will fail because the cloud relay can't reach your local network. Switch to your local HA URL to configure.
-
-## Installation
-
-### HACS (Recommended)
-
-1. Open HACS in Home Assistant
-2. Click the three dots menu > **Custom repositories**
-3. Add `https://github.com/jloops412/ha-super-productivity` with category **Integration**
-4. Close the dialog, then search for "Super Productivity" in HACS
-5. Click **Download**
-6. **Restart Home Assistant**
-7. Go to Settings > Devices & Services > **Add Integration** > search "Super Productivity"
-
-### Manual
-
-1. Copy the `custom_components/super_productivity` folder to your HA `config/custom_components/` directory
-2. Restart Home Assistant
-3. Go to Settings > Devices & Services > Add Integration > Super Productivity
-
-## Configuration
-
-The integration uses a UI config flow. Enter:
-
-| Field | Default | Description |
-|-------|---------|-------------|
-| Host | `127.0.0.1` | IP of the machine running Super Productivity |
-| Port | `3876` | Port for the Local REST API |
-
-The integration will be created even if SP isn't currently running - it will retry automatically.
+- **Auto-adjust lighting** when you start deep work vs. take a break
+- **Get Pomodoro break reminders** as phone notifications or TTS announcements
+- **Track your work time** on a smart home dashboard visible from any room
+- **Create tasks via voice** through HA's Assist
+- **Celebrate completion** with lights, sounds, or party scenes when all tasks are done
+- **Different ambiance per project** — blue lights for coding, warm for creative work
 
 ---
 
-## What You Get
+## Quick Start
 
-### Interactive Controls (Actions)
+### 1. Install the HA Integration
 
-These let you **do things** from HA dashboards, automations, and voice assistants:
+**Via HACS (recommended):**
+1. HACS > three dots > Custom repositories
+2. Add `https://github.com/jloops412/ha-super-productivity` as **Integration**
+3. Find "Super Productivity" in HACS > **Download**
+4. Restart Home Assistant
+5. Settings > Devices & Services > Add Integration > **Super Productivity**
+6. Enter your SP machine's IP and port `3876`
 
-| Entity | Type | What It Does |
-|--------|------|-------------|
-| **Time Tracking** | Switch | Toggle ON to resume last task, OFF to stop tracking |
-| **Start Task** | Select (dropdown) | Pick any of today's pending tasks to start tracking |
-| **Active Project** | Select (dropdown) | Choose which project new tasks get added to |
-| **Quick Add Task** | Text input | Type a title, press enter = task created in SP |
-| **Stop Tracking** | Button | Stop the current timer |
-| **Complete Current Task** | Button | Mark current task done and stop timer |
-| **Archive Current Task** | Button | Archive current task and stop timer |
+**Prerequisites:**
+- Super Productivity desktop app (Electron) with **Local REST API enabled** (Settings > Misc > Enable local REST API)
+- HA and SP on the same local network
 
-### Status Sensors (Monitoring)
+### 2. Install the SP Plugin
 
-| Entity | Type | What It Shows |
-|--------|------|-------------|
-| **Current Task** | Sensor | Title of the task you're tracking (+ attributes: task_id, project, time spent/estimated) |
-| **Tracking Active** | Binary Sensor | ON when timer is running, OFF when idle |
-| **Active Tasks** | Sensor | Total count of all non-archived tasks |
-| **Today's Tasks** | Sensor | Number of tasks scheduled for today |
-| **Today's Pending** | Sensor | Today's unfinished tasks |
-| **Today's Completed** | Sensor | Today's finished tasks |
-| **Time Worked Today** | Sensor | Hours tracked today (with minutes/seconds in attributes) |
+1. Download `sp-plugin.zip` from the [latest release](https://github.com/jloops412/ha-super-productivity/releases)
+2. In SP: Settings > Plugins > Upload Plugin > select the ZIP
+3. Click "HA Bridge" in the left sidebar
+4. Go to **Settings** tab > enter your HA URL + Long-Lived Access Token
+5. Add rules in the **Rules** tab
 
-### Todo Lists
+---
 
-| Entity | What It Does |
+## Home Assistant Integration
+
+### Entities
+
+| Type | Entities | Purpose |
+|------|----------|---------|
+| **Sensors** | Current Task, Active Tasks, Today's Tasks (total/pending/done), Time Worked Today, Current Task Time, Per-Project Task Counts, Task Details (Markdown) | Monitor productivity |
+| **Binary Sensor** | Tracking Active | Is the timer running? |
+| **Todo Lists** | One per SP project + "Today" list | View/manage tasks from HA |
+| **Calendar** | SP Schedule | Scheduled tasks as calendar events |
+| **Switch** | Time Tracking | Toggle tracking on/off |
+| **Select** | Start Task, Active Project | Pick tasks/projects from dropdowns |
+| **Text** | Quick Add Task | Type a title to create a task |
+| **Buttons** | Stop, Complete, Archive | One-tap task actions |
+
+### Events Fired
+
+| Event | When | Data |
+|-------|------|------|
+| `super_productivity_task_started` | Tracking begins | task_id, title, project_id |
+| `super_productivity_task_stopped` | Tracking ends | task_id |
+| `super_productivity_task_completed` | Task marked done | task_id, title, time_spent_ms |
+| `super_productivity_all_today_tasks_done` | All today's tasks complete | completed_count, time_worked_ms |
+
+### Services
+
+| Service | Description |
+|---------|-------------|
+| `super_productivity.create_task` | Create a task (title, project, tags, notes, due date) |
+| `super_productivity.start_task` | Start tracking by task ID |
+| `super_productivity.stop_task` | Stop current tracking |
+| `super_productivity.complete_task` | Mark task done |
+| `super_productivity.archive_task` | Archive a task |
+
+### Options
+
+After setup, configure via Settings > Devices & Services > Super Productivity > Configure:
+- **Host/Port** — change without removing the integration
+- **Poll interval** — 5 to 300 seconds (default 30)
+
+### Webhook
+
+The SP plugin can push instant updates to HA via webhook (no polling delay). The webhook ID is automatically registered and logged at startup:
+```
+super_productivity_<entry_id>
+```
+Find it in Settings > System > Logs, or via the API.
+
+---
+
+## Super Productivity Plugin
+
+### Rules Engine
+
+Create unlimited automation rules that fire based on your task activity:
+
+**Triggers:**
+| Trigger | Fires When |
+|---------|-----------|
+| Task Started | You begin tracking any task |
+| Task Stopped | You stop tracking |
+| Task Completed | A task is marked done |
+| First Task of Day | The first task you track in a session |
+| All Today's Done | Every today-scheduled task is complete |
+| Timer (X min) | After X minutes of continuous tracking |
+| Idle (X min) | After X minutes of no tracking |
+| Day Finished | You end your work day in SP |
+
+**Conditions (optional filters):**
+- Only for a specific **Project**
+- Only for a specific **Tag**
+- Only if title **contains** text
+
+**Actions:**
+| Action | What It Does |
 |--------|-------------|
-| **SP: \<Project Name\>** | One list per project - view, create, complete, delete tasks |
-| **SP: Today** | All tasks scheduled for today - check off as you go |
+| Activate Scene | Turn on any HA scene |
+| Trigger Automation | Fire any HA automation |
+| Run Script | Execute any HA script |
+| Toggle Entity | Toggle any light/switch/entity |
+| Set Light | Set brightness + color temperature |
+| Media Control | Play/Pause/Next/Previous/Volume |
+| TTS Announcement | Speak a message on any speaker |
+| Custom Service | Call any HA service with data |
+| Phone Notification | Push notification to your phone |
 
-These show up in HA's native **To-do panel** (sidebar) for a full task management view.
+### Sensor Display
 
-### Services (For Automations)
+The **Sensors** tab shows live values from any HA sensor you configure — temperature, humidity, energy, whatever you want visible while working.
 
-| Service | Parameters | Description |
-|---------|-----------|-------------|
-| `super_productivity.create_task` | `title` (required), `project_id`, `tag_ids`, `notes`, `time_estimate`, `due_day`, `parent_id` | Create a task |
-| `super_productivity.start_task` | `task_id` | Start tracking a specific task |
-| `super_productivity.stop_task` | (none) | Stop current tracking |
-| `super_productivity.complete_task` | `task_id` | Mark a task as done |
-| `super_productivity.archive_task` | `task_id` | Archive a task |
+### Service Caller
 
----
+The **Services** tab lets you call any HA service on-demand with entity dropdowns and JSON data support.
 
-## Dashboard Setup
+### Configuration
 
-### Recommended Card Layout
-
-Add these to a Lovelace dashboard for a productivity control panel:
-
-**Entities Card - Controls:**
-```yaml
-type: entities
-title: Super Productivity
-entities:
-  - entity: switch.super_productivity_time_tracking
-  - entity: select.super_productivity_start_task
-  - entity: text.super_productivity_quick_add_task
-  - entity: select.super_productivity_active_project
-  - entity: button.super_productivity_stop_tracking
-  - entity: button.super_productivity_complete_current_task
-```
-
-**Glance Card - Status:**
-```yaml
-type: glance
-title: Today's Progress
-entities:
-  - entity: sensor.super_productivity_today_s_pending_tasks
-    name: Pending
-  - entity: sensor.super_productivity_today_s_completed_tasks
-    name: Done
-  - entity: sensor.super_productivity_time_worked_today
-    name: Tracked
-  - entity: sensor.super_productivity_active_tasks
-    name: Total
-```
-
-**Conditional Card - Current Task:**
-```yaml
-type: conditional
-conditions:
-  - entity: binary_sensor.super_productivity_tracking_active
-    state: "on"
-card:
-  type: entity
-  entity: sensor.super_productivity_current_task
-  name: Currently Working On
-```
-
-**Todo List Card:**
-```yaml
-type: todo-list
-entity: todo.sp_today
-title: Today's Tasks
-```
+All settings are in the **Settings** tab within the plugin:
+- HA URL (local, not cloud)
+- Long-Lived Access Token
+- Webhook ID (for instant sync)
+- Sensor selection (dropdown picker)
 
 ---
 
-## Automation Examples
+## Dashboard Example
 
-### Focus mode - change lights when tracking starts
+The repo includes a ready-to-use dashboard layout in `examples/dashboard_cards.yaml` using `custom:button-card` for a polished look:
 
-```yaml
-automation:
-  - alias: "Focus mode ON"
-    trigger:
-      - platform: state
-        entity_id: binary_sensor.super_productivity_tracking_active
-        to: "on"
-    action:
-      - service: light.turn_on
-        target:
-          entity_id: light.office_lamp
-        data:
-          brightness: 180
-          color_temp_kelvin: 4000
+- **Focus section** — live tracking indicator, task picker, control buttons
+- **Today section** — colored stat cards (pending/done/hours), todo list
+- **Quick Actions** — add task, project picker, archive
 
-  - alias: "Focus mode OFF"
-    trigger:
-      - platform: state
-        entity_id: binary_sensor.super_productivity_tracking_active
-        to: "off"
-    action:
-      - service: light.turn_on
-        target:
-          entity_id: light.office_lamp
-        data:
-          brightness: 255
-          color_temp_kelvin: 2700
-```
-
-### Break reminder after 90 minutes of continuous tracking
-
-```yaml
-automation:
-  - alias: "Take a break reminder"
-    trigger:
-      - platform: state
-        entity_id: binary_sensor.super_productivity_tracking_active
-        to: "on"
-        for: "01:30:00"
-    action:
-      - service: notify.mobile_app_your_phone
-        data:
-          title: "Break Time"
-          message: "You've been working for 90 minutes. Stand up and stretch!"
-```
-
-### Daily summary notification at end of work day
-
-```yaml
-automation:
-  - alias: "Daily work summary"
-    trigger:
-      - platform: time
-        at: "17:30:00"
-    action:
-      - service: notify.mobile_app_your_phone
-        data:
-          title: "Work Day Summary"
-          message: >
-            Completed: {{ states('sensor.super_productivity_today_s_completed_tasks') }} tasks
-            Remaining: {{ states('sensor.super_productivity_today_s_pending_tasks') }} tasks
-            Time tracked: {{ states('sensor.super_productivity_time_worked_today') }}h
-```
-
-### Add a task via voice assistant (HA Assist)
-
-```yaml
-automation:
-  - alias: "Voice: Add task"
-    trigger:
-      - platform: conversation
-        command:
-          - "Add task {task_name}"
-          - "New task {task_name}"
-          - "Remind me to {task_name}"
-    action:
-      - service: super_productivity.create_task
-        data:
-          title: "{{ trigger.slots.task_name }}"
-```
-
-### Celebrate when all daily tasks are done
-
-```yaml
-automation:
-  - alias: "All tasks complete celebration"
-    trigger:
-      - platform: state
-        entity_id: sensor.super_productivity_today_s_pending_tasks
-        to: "0"
-    condition:
-      - condition: numeric_state
-        entity_id: sensor.super_productivity_today_s_tasks
-        above: 0
-    action:
-      - service: tts.speak
-        target:
-          entity_id: tts.google_en
-        data:
-          message: "All tasks for today are done. Great work!"
-          media_player_entity_id: media_player.living_room
-```
-
-### Auto-stop tracking at bedtime
-
-```yaml
-automation:
-  - alias: "Stop tracking at bedtime"
-    trigger:
-      - platform: time
-        at: "22:00:00"
-    condition:
-      - condition: state
-        entity_id: binary_sensor.super_productivity_tracking_active
-        state: "on"
-    action:
-      - service: super_productivity.stop_task
-```
+Requires the `button-card` custom card (install via HACS > Frontend).
 
 ---
 
-## Technical Details
+## Architecture
 
-- **Polling interval:** 30 seconds
-- **API:** Super Productivity Local REST API (port 3876)
-- **Authentication:** None (API is localhost-only by design)
-- **Compatibility:** Super Productivity v10+ with Local REST API enabled
-- **HA Version:** 2024.1.0+
+```
+┌─────────────────┐         ┌─────────────────────────┐
+│ Super            │  REST   │  Home Assistant          │
+│ Productivity     │◄───────►│                         │
+│                  │  API    │  Integration (polling)   │
+│  ┌────────────┐  │         │  - Sensors              │
+│  │ HA Bridge  │──┼────────►│  - Todo lists           │
+│  │ Plugin     │  │ webhook │  - Controls             │
+│  └────────────┘  │         │  - Events               │
+└─────────────────┘         └─────────────────────────┘
+       │                              │
+       │ Rules Engine                 │ Automations
+       ▼                              ▼
+  HA Services API              Smart Home Devices
+  (scenes, lights,             (lights, speakers,
+   media, notify)               locks, etc.)
+```
+
+**Data flow:**
+1. HA integration polls SP's Local REST API every 30s (or instant via webhook)
+2. SP plugin pushes events to HA webhook on task changes
+3. SP plugin calls HA services directly based on rules
+4. HA fires events that automations can trigger on
+
+---
+
+## Installation Details
+
+### Network Requirements
+
+| Scenario | Setup |
+|----------|-------|
+| SP and HA on same machine | Host: `127.0.0.1`, Port: `3876` |
+| SP and HA on same LAN | Host: SP machine's IP, Port: `3876` |
+| Accessing HA via Nabu Casa | Use **local URL** for integration setup |
+
+The SP Local REST API binds to localhost only. If HA is on a different machine, use the included `sp_proxy.py` or configure a reverse proxy.
+
+### Compatibility
+
+- **Super Productivity:** v10+ (Local REST API required)
+- **Home Assistant:** 2024.1.0+
+- **HACS:** Any recent version
+- **SP Plugin:** Works in Electron desktop app (not web version)
+
+---
 
 ## Troubleshooting
 
 | Problem | Solution |
 |---------|----------|
-| "Cannot connect" during setup | Make sure SP desktop app is running with Local REST API enabled. Use your local HA URL, not Nabu Casa cloud URL. |
-| Integration shows "Retrying setup" | SP app is not running or not reachable. Start the app and it will reconnect automatically. |
-| Entities show "Unavailable" | SP app was closed or the API was disabled. Entities recover when SP restarts. |
-| No tasks in the "Start Task" dropdown | You have no pending tasks scheduled for today in SP. |
-| Task created but not in expected project | Select the project in the "Active Project" dropdown first. |
+| "Cannot connect" during HA setup | Ensure SP is running with Local REST API enabled. Use local HA URL, not Nabu Casa. |
+| Integration shows "Retrying" | SP app isn't running. Start it and HA will reconnect. |
+| Plugin shows "Not set" | Go to Settings tab in the plugin and enter your HA URL + token. |
+| Rules not firing | Check F12 console for `[HA Bridge]` logs. Ensure rules are enabled (toggle). |
+| Duplicate plugin views | Remove plugin, fully quit SP (not just close), restart, reinstall. |
+| Sensors not loading | Save settings first, wait for "Connected" badge, then check Sensors tab. |
+
+---
+
+## Contributing
+
+Issues and PRs welcome at https://github.com/jloops412/ha-super-productivity
+
+---
 
 ## License
 
