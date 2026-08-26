@@ -1,0 +1,235 @@
+# MR60BHA2 extended entities package.
+# Assumes the existing radar hub is id: mmwave_radar.
+
+external_components:
+  - source:
+      type: git
+      url: https://github.com/jloops412/ha-super-productivity
+      ref: mr60bha2-v0.1.0
+      path: esphome/components
+    components:
+      - seeed_mr60bha2
+
+binary_sensor:
+  - platform: seeed_mr60bha2
+    mr60bha2_id: mmwave_radar
+    radar_data_valid:
+      name: "Radar Data Valid"
+    vital_signs_valid:
+      name: "Vital Signs Valid"
+    phase_data_valid:
+      name: "Phase Data Available"
+    target_data_valid:
+      name: "Tracked Target Data Available"
+    point_cloud_data_valid:
+      name: "Point Cloud Data Available"
+
+sensor:
+  - platform: seeed_mr60bha2
+    mr60bha2_id: mmwave_radar
+    total_phase:
+      name: "Total Phase"
+      filters: &fast_radar_filters
+        - throttle: 250ms
+    breath_phase:
+      name: "Breathing Phase"
+      filters: *fast_radar_filters
+    heart_phase:
+      name: "Heart Phase"
+      filters: *fast_radar_filters
+    range_flag:
+      name: "Vital Range Flag"
+    point_cloud_count:
+      name: "Point Cloud Count"
+    alternative_x:
+      name: "Alternative Position X"
+      filters: *fast_radar_filters
+    alternative_y:
+      name: "Alternative Position Y"
+      filters: *fast_radar_filters
+    status_code:
+      name: "Radar Status Code"
+
+    target_1_x:
+      name: "Tracked Target 1 X"
+      filters: *fast_radar_filters
+    target_1_y:
+      name: "Tracked Target 1 Y"
+      filters: *fast_radar_filters
+    target_1_doppler_index:
+      name: "Tracked Target 1 Doppler Index"
+      filters: *fast_radar_filters
+    target_1_speed:
+      name: "Tracked Target 1 Speed"
+      filters: *fast_radar_filters
+    target_1_distance:
+      name: "Tracked Target 1 Distance"
+      filters: *fast_radar_filters
+    target_1_angle:
+      name: "Tracked Target 1 Angle"
+      filters: *fast_radar_filters
+    target_1_cluster_id:
+      name: "Tracked Target 1 Cluster ID"
+      filters: *fast_radar_filters
+
+    target_2_x:
+      name: "Tracked Target 2 X"
+      filters: *fast_radar_filters
+    target_2_y:
+      name: "Tracked Target 2 Y"
+      filters: *fast_radar_filters
+    target_2_doppler_index:
+      name: "Tracked Target 2 Doppler Index"
+      filters: *fast_radar_filters
+    target_2_speed:
+      name: "Tracked Target 2 Speed"
+      filters: *fast_radar_filters
+    target_2_distance:
+      name: "Tracked Target 2 Distance"
+      filters: *fast_radar_filters
+    target_2_angle:
+      name: "Tracked Target 2 Angle"
+      filters: *fast_radar_filters
+    target_2_cluster_id:
+      name: "Tracked Target 2 Cluster ID"
+      filters: *fast_radar_filters
+
+    target_3_x:
+      name: "Tracked Target 3 X"
+      filters: *fast_radar_filters
+    target_3_y:
+      name: "Tracked Target 3 Y"
+      filters: *fast_radar_filters
+    target_3_doppler_index:
+      name: "Tracked Target 3 Doppler Index"
+      filters: *fast_radar_filters
+    target_3_speed:
+      name: "Tracked Target 3 Speed"
+      filters: *fast_radar_filters
+    target_3_distance:
+      name: "Tracked Target 3 Distance"
+      filters: *fast_radar_filters
+    target_3_angle:
+      name: "Tracked Target 3 Angle"
+      filters: *fast_radar_filters
+    target_3_cluster_id:
+      name: "Tracked Target 3 Cluster ID"
+      filters: *fast_radar_filters
+
+    point_1_x:
+      name: "Point Cloud Point 1 X"
+      filters: *fast_radar_filters
+    point_1_y:
+      name: "Point Cloud Point 1 Y"
+      filters: *fast_radar_filters
+    point_1_doppler_index:
+      name: "Point Cloud Point 1 Doppler Index"
+      filters: *fast_radar_filters
+    point_1_speed:
+      name: "Point Cloud Point 1 Speed"
+      filters: *fast_radar_filters
+    point_1_distance:
+      name: "Point Cloud Point 1 Distance"
+      filters: *fast_radar_filters
+    point_1_angle:
+      name: "Point Cloud Point 1 Angle"
+      filters: *fast_radar_filters
+    point_1_cluster_id:
+      name: "Point Cloud Point 1 Cluster ID"
+      filters: *fast_radar_filters
+
+    point_2_x:
+      name: "Point Cloud Point 2 X"
+      filters: *fast_radar_filters
+    point_2_y:
+      name: "Point Cloud Point 2 Y"
+      filters: *fast_radar_filters
+    point_2_doppler_index:
+      name: "Point Cloud Point 2 Doppler Index"
+      filters: *fast_radar_filters
+    point_2_speed:
+      name: "Point Cloud Point 2 Speed"
+      filters: *fast_radar_filters
+    point_2_distance:
+      name: "Point Cloud Point 2 Distance"
+      filters: *fast_radar_filters
+    point_2_angle:
+      name: "Point Cloud Point 2 Angle"
+      filters: *fast_radar_filters
+    point_2_cluster_id:
+      name: "Point Cloud Point 2 Cluster ID"
+      filters: *fast_radar_filters
+
+    point_3_x:
+      name: "Point Cloud Point 3 X"
+      filters: *fast_radar_filters
+    point_3_y:
+      name: "Point Cloud Point 3 Y"
+      filters: *fast_radar_filters
+    point_3_doppler_index:
+      name: "Point Cloud Point 3 Doppler Index"
+      filters: *fast_radar_filters
+    point_3_speed:
+      name: "Point Cloud Point 3 Speed"
+      filters: *fast_radar_filters
+    point_3_distance:
+      name: "Point Cloud Point 3 Distance"
+      filters: *fast_radar_filters
+    point_3_angle:
+      name: "Point Cloud Point 3 Angle"
+      filters: *fast_radar_filters
+    point_3_cluster_id:
+      name: "Point Cloud Point 3 Cluster ID"
+      filters: *fast_radar_filters
+
+    firmware_project:
+      name: "Radar Firmware Project"
+    firmware_major:
+      name: "Radar Firmware Major"
+    firmware_sub:
+      name: "Radar Firmware Subversion"
+    firmware_modified:
+      name: "Radar Firmware Modification"
+    packet_rate:
+      name: "Radar Packet Rate"
+    phase_packet_rate:
+      name: "Phase Packet Rate"
+    target_packet_rate:
+      name: "Tracked Target Packet Rate"
+    point_cloud_packet_rate:
+      name: "Point Cloud Packet Rate"
+    last_packet_age:
+      name: "Last Radar Packet Age"
+    last_phase_age:
+      name: "Last Phase Packet Age"
+    last_target_age:
+      name: "Last Tracked Target Packet Age"
+    last_point_cloud_age:
+      name: "Last Point Cloud Packet Age"
+    valid_frame_count:
+      name: "Valid Radar Frame Count"
+    header_checksum_errors:
+      name: "Radar Header Checksum Errors"
+    data_checksum_errors:
+      name: "Radar Data Checksum Errors"
+    oversize_frame_errors:
+      name: "Radar Oversize Frame Errors"
+    unknown_frame_count:
+      name: "Unknown Radar Frame Count"
+    last_frame_id:
+      name: "Last Radar Frame ID"
+    last_frame_type:
+      name: "Last Radar Frame Type"
+    last_unknown_type:
+      name: "Last Unknown Radar Frame Type"
+
+text_sensor:
+  - platform: seeed_mr60bha2
+    mr60bha2_id: mmwave_radar
+    firmware_version:
+      name: "Radar Firmware Version"
+    last_unknown_frame:
+      name: "Last Unknown Radar Frame"
+    # debug_log is supported but omitted because some firmware emits it often.
+    # debug_log:
+    #   name: "Radar Debug Log"
