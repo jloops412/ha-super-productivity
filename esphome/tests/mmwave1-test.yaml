@@ -1,0 +1,58 @@
+packages:
+  mr60bha2_extended: github://jloops412/ha-super-productivity/esphome/packages/mr60bha2_extended.yaml@mr60bha2-v0.1.0
+
+esphome:
+  name: mmwave-ci
+  friendly_name: mmwave-ci
+  min_version: 2024.3.2
+  platformio_options:
+    board_upload.maximum_size: 4194304
+
+esp32:
+  board: esp32-c6-devkitc-1
+  variant: esp32c6
+  flash_size: 4MB
+  framework:
+    type: esp-idf
+
+logger:
+  hardware_uart: USB_SERIAL_JTAG
+
+api:
+
+ota:
+  - platform: esphome
+
+wifi:
+  ssid: "ci-test-network"
+  password: "ci-test-password"
+
+uart:
+  id: radar_uart
+  baud_rate: 115200
+  rx_pin: GPIO17
+  tx_pin: GPIO16
+  parity: NONE
+  stop_bits: 1
+
+seeed_mr60bha2:
+  id: mmwave_radar
+  uart_id: radar_uart
+
+binary_sensor:
+  - platform: seeed_mr60bha2
+    mr60bha2_id: mmwave_radar
+    has_target:
+      name: "Presence"
+
+sensor:
+  - platform: seeed_mr60bha2
+    mr60bha2_id: mmwave_radar
+    breath_rate:
+      name: "Respiratory Rate"
+    heart_rate:
+      name: "Heart Rate"
+    distance:
+      name: "Nearest Target Distance"
+    num_targets:
+      name: "Target Count"
